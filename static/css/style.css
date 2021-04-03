@@ -1,0 +1,7 @@
+textarea {
+    resize: none;
+}
+
+#process-description, #process-model {
+    height: calc(100vh - 185px);
+}

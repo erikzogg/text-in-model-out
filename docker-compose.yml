@@ -19,6 +19,8 @@ services:
         image: bachelor-thesis/nginx
         container_name: nginx
         hostname: nginx
+        volumes:
+            - ./static:/static
         depends_on:
             - django
         ports:
