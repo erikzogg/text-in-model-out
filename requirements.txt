@@ -1,0 +1,6 @@
+Django
+pip
+setuptools
+wheel
+spacy
+gunicorn

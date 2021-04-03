@@ -1,0 +1,25 @@
+version: '3'
+
+services:
+    django:
+        build:
+            context: .
+        image: bachelor-thesis/django
+        container_name: django
+        hostname: django
+        volumes:
+            - .:/usr/src/app
+        command: gunicorn project.wsgi:application --bind 0.0.0.0:8000
+        expose:
+            - 8000
+
+    nginx:
+        build:
+            context: .docker/nginx
+        image: bachelor-thesis/nginx
+        container_name: nginx
+        hostname: nginx
+        depends_on:
+            - django
+        ports:
+            - '80:80'
