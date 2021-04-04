@@ -11,24 +11,18 @@
         <link href="{% static 'css/style.css' %}" rel="stylesheet">
     </head>
     <body>
-        <nav class="navbar navbar-dark bg-dark">
-            <div class="container-fluid">
-                <a class="navbar-brand" href="/">Bachelor Thesis: Tool</a>
-            </div>
-        </nav>
-
-        <div class="container-fluid">
-            <div class="row">
-                <div class="col-lg">
+        <div class="container-fluid p-5">
+            <div class="row h-100">
+                <div class="col-xl h-100 d-flex flex-column">
                     <div class="text-center">
                         <h1>Input: Process Description</h1>
                     </div>
-                    <div class="mb-3">
+                    <div class="mb-3 flex-fill">
                         <label for="process-description" class="form-label d-none">Process Description</label>
-                        <textarea class="form-control" id="process-description" rows="10" placeholder="Please provide here a process description..."></textarea>
+                        <textarea class="form-control h-100" id="process-description" placeholder="Please provide here a process description..."></textarea>
                     </div>
                     <div class="mb-3 text-center">
-                        <button type="button" class="btn btn-outline-primary">Create Process Model</button>
+                        <button type="button" class="btn btn-outline-primary" id="button-create-model" disabled="disabled">Create Process Model</button>
                     </div>
                     <div class="text-center d-none">
                         <button type="button" class="btn btn-outline-secondary">Load Example 1</button>
@@ -36,17 +30,21 @@
                         <button type="button" class="btn btn-outline-secondary">Load Example 3</button>
                     </div>
                 </div>
-                <div class="col-lg">
+                <div class="col-xl h-100 d-flex flex-column">
                     <div class="text-center">
                         <h1>Output: Process Model</h1>
                     </div>
-                    <div class="border rounded" id="process-model">
+                    <div class="mb-3 border rounded flex-fill" id="process-model">
                         Process Model
+                    </div>
+                    <div class="mb-3 text-center">
+                        <button type="button" class="btn btn-outline-primary" disabled="disabled">Export as SVG</button>
                     </div>
                 </div>
             </div>
         </div>
 
         <script src="{% static 'js/bootstrap.bundle.min.js' %}"></script>
+        <script src="{% static 'js/app.js' %}"></script>
     </body>
 </html>

@@ -1,7 +1,24 @@
-textarea {
-    resize: none;
+@import url('https://fonts.googleapis.com/css2?family=Commissioner:wght@400;700&display=swap');
+
+body {
+    font-family: 'Commissioner', sans-serif;
 }
 
-#process-description, #process-model {
-    height: calc(100vh - 185px);
+@media (min-width: 1200px) {
+    body {
+        background-color: #eee;
+    }
+
+    .container-fluid {
+        background-color: #fff;
+        margin: 50px;
+        width: calc(100vw - 100px);
+        height: calc(100vh - 100px);
+        min-height: 450px;
+        box-shadow: 0 1rem 3rem rgba(0, 0, 0, .175) !important;
+    }
+}
+
+textarea {
+    resize: none;
 }
