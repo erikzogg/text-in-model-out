@@ -11,7 +11,11 @@
         <link href="{% static 'css/style.css' %}" rel="stylesheet">
     </head>
     <body>
-        <div class="container-fluid p-5">
+        <header class="text-center" id="logo">
+            <img src="{% static 'img/app-logo.svg' %}" alt="Application Logo" class="img-fluid">
+        </header>
+
+        <main class="container-fluid p-5">
             <div class="row h-100">
                 <div class="col-xl h-100 d-flex flex-column">
                     <div class="text-center">
@@ -42,7 +46,23 @@
                     </div>
                 </div>
             </div>
-        </div>
+        </main>
+
+        <footer>
+            <div class="text-center">
+                <ul class="list-inline">
+                    <li class="list-inline-item">
+                        <a href="#" class="text-decoration-none">About</a>
+                    </li>
+                    <li class="list-inline-item">
+                        <a href="#" class="text-decoration-none">Imprint</a>
+                    </li>
+                    <li class="list-inline-item">
+                        <a href="#" class="text-decoration-none">Privacy</a>
+                    </li>
+                </ul>
+            </div>
+        </footer>
 
         <script src="{% static 'js/bootstrap.bundle.min.js' %}"></script>
         <script src="{% static 'js/app.js' %}"></script>
