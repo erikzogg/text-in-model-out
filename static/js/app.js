@@ -46,7 +46,19 @@ let initApp = function () {
             .catch(error => {
                 document.getElementById('process-model').innerHTML = error;
             });
-    })
+    });
+
+    document.querySelectorAll('.btn-example').forEach(item => {
+        item.addEventListener('click', function () {
+            let exampleNumber = this.getAttribute('data-btn');
+
+            fetch('/static/examples/process_' + exampleNumber + '.txt')
+                .then(response => response.text())
+                .then(data => {
+                    document.getElementById('process-description').value = data;
+                });
+        });
+    });
 };
 
 let handleResponse = function (data) {
