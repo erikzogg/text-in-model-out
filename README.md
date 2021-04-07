@@ -13,7 +13,17 @@
 
 ## Setup
 
+### With Docker (recommended)
+
 ```
 docker-compose build
 docker-compose up -d
+```
+
+### Without Docker
+
+```
+pip install --no-cache-dir -r requirements.txt
+python -m spacy download en_core_web_sm
+python manage.py runserver
 ```

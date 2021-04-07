@@ -1,4 +1,8 @@
 from django.http import HttpResponse
+from backend.nlp import parse
+
 
 def index(request):
-    return HttpResponse(request.POST['text'])
+    results = parse(request.POST['text'])
+
+    return HttpResponse(str(results))
