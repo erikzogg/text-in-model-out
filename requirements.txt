@@ -4,3 +4,4 @@ setuptools
 wheel
 spacy
 gunicorn
+lemminflect
