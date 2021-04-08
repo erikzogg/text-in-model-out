@@ -6,13 +6,7 @@ let initApp = function () {
     let processDescriptionElement = document.getElementById('process-description');
 
     processDescriptionElement.addEventListener('input', function (event) {
-        let processDescriptionText = event.target.value;
-
-        if (processDescriptionText.trim().length > 0) {
-            document.getElementById('button-create-model').removeAttribute('disabled');
-        } else {
-            document.getElementById('button-create-model').setAttribute('disabled', 'disabled');
-        }
+        checkProcessDescription(event.target.value);
     });
 
     let buttonCreateModel = document.getElementById('button-create-model');
@@ -56,9 +50,18 @@ let initApp = function () {
                 .then(response => response.text())
                 .then(data => {
                     document.getElementById('process-description').value = data;
+                    checkProcessDescription(data);
                 });
         });
     });
+};
+
+let checkProcessDescription = function (text) {
+    if (text.trim().length > 0) {
+        document.getElementById('button-create-model').removeAttribute('disabled');
+    } else {
+        document.getElementById('button-create-model').setAttribute('disabled', 'disabled');
+    }
 };
 
 let handleResponse = function (data) {

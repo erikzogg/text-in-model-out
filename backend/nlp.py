@@ -12,9 +12,14 @@ def parse(text):
     for sent in doc.sents:
         for token in sent:
             if token.pos_ == "VERB":
+                if len([child for child in token.children if (child.pos_ == "VERB" and child.dep_ == "xcomp")]) > 0:
+                    # Skip semi-modal verbs
+                    continue
+
                 activity = ""
 
                 for child in token.children:
+                    # Find phrasal verbs
                     if child.pos_ == "ADP":
                         activity = token.lemma_ + " " + child.lemma_
 
