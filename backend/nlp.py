@@ -14,7 +14,8 @@ def parse(text):
 
     doc = nlp(text)
 
-    get_startevent(doc)
+    startevent = get_startevent(doc)
+    print(startevent)
 
     for index, sent in enumerate(doc.sents):
         for token in sent:
@@ -50,6 +51,10 @@ def get_startevent(doc):
         if index == 0:
             for token in sentence:
                 if token.pos_ == "VERB":
+                    if len([child for child in token.children if (child.pos_ == "VERB" and child.dep_ == "xcomp")]) > 0:
+                        # Skip semi-modal verbs
+                        continue
+
                     for child in token.children:
                         if child.dep_ == "nsubjpass" or child.dep_ == "dobj":
                             startevent = child.text + " " + token._.inflect('VBN')
