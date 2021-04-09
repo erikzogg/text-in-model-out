@@ -9,8 +9,6 @@ determiners = ['a', 'an', 'the']
 def parse(text):
     output = {"startevent": "", "activities": [], "endevent": ""}
 
-    activities = []
-
     nlp = spacy.load("en_core_web_sm")
     nlp.add_pipe("merge_noun_chunks")
 
@@ -57,6 +55,15 @@ def parse(text):
                 activity = " ".join([word for word in activity.split() if word.lower() not in determiners])
 
                 output["activities"].append(activity)
+
+            # End event detection
+            if token.pos_ == "VERB":
+                for child in token.children:
+                    if child.dep_ == "nsubjpass" or child.dep_ == "dobj":
+                        endevent = child.text + " " + token._.inflect('VBN')
+                        endevent = " ".join([word for word in endevent.split() if word.lower() not in determiners])
+
+                        output["endevent"] = endevent
 
     svg = displacy.render(doc, style="dep")
 
