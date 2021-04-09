@@ -23,9 +23,7 @@ def parse(text):
                 for child in token.children:
                     if child.dep_ == "nsubjpass" or child.dep_ == "dobj":
                         startevent = child.text + " " + token._.inflect('VBN')
-
-                        if startevent.split(' ')[0].lower() in determiners:
-                            startevent = " ".join(startevent.split(' ')[1:])
+                        startevent = " ".join([word for word in startevent.split() if word.lower() not in determiners])
 
                         output["startevent"] = startevent
             # Remaining iterations: Detect activities
@@ -39,7 +37,24 @@ def parse(text):
                 for child in token.children:
                     # Find phrasal verbs
                     if child.pos_ == "ADP":
-                        activity = token.lemma_ + " " + child.lemma_
+                        noun = next((noun for noun in child.children if (noun.pos_ == "NOUN")), None)
+
+                        activity = activity + " " + child.lemma_
+
+                        if noun:
+                            activity = activity + " " + noun.text
+
+                for child in token.children:
+                    if child.dep_ == "nsubjpass" or child.dep_ == "dobj":
+                        activity = activity + " " + child.text
+
+                # Find subject from semi-modal-verb
+                for parent in token.ancestors:
+                    if token in parent.children and token.dep_ == "xcomp":
+                        subject = next(subject for subject in parent.children if (subject.dep_ == "nsubj"))
+                        activity = activity + " " + subject.text
+
+                activity = " ".join([word for word in activity.split() if word.lower() not in determiners])
 
                 output["activities"].append(activity)
 
