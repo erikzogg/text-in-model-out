@@ -4,6 +4,11 @@ body {
     font-family: 'Commissioner', sans-serif;
 }
 
+::selection {
+    background-color: #21a1ff;
+    color: #fff;
+}
+
 #logo {
     margin-top: 50px;
 }
@@ -33,6 +38,7 @@ textarea {
 
 #process-description, #process-model {
     min-height: 200px;
+    overflow-y: auto;
 }
 
 footer {
