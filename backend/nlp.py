@@ -14,12 +14,17 @@ def parse(text):
 
     doc = nlp(text)
 
-    for index, sent in enumerate(doc.sents):
+    sentences_number = len(list(doc.sents))
+
+    for index, sent in enumerate(doc.sents, 1):
         for token in sent:
             # First iteration: Detect startevent
             if token.pos_ == "VERB" and output["startevent"] == "":
                 the_object = next((child for child in token.children if (child.dep_ == "nsubjpass" or child.dep_ == "dobj")), None)
                 phrasal_verb = next((child for child in token.children if (child.pos_ == "ADP")), None)
+
+                if not the_object and phrasal_verb:
+                    the_object = next((child for child in phrasal_verb.children if (child.dep_ == "pobj")), None)
 
                 startevent = None
 
@@ -42,6 +47,9 @@ def parse(text):
                 the_object = next((child for child in token.children if (child.dep_ == "nsubjpass" or child.dep_ == "dobj")), None)
                 phrasal_verb = next((child for child in token.children if (child.pos_ == "ADP")), None)
 
+                if not the_object and phrasal_verb:
+                    the_object = next((child for child in phrasal_verb.children if (child.dep_ == "pobj")), None)
+
                 # Search object in case of a semi-modal verb
                 if not the_object:
                     for parent in token.ancestors:
@@ -55,10 +63,6 @@ def parse(text):
 
                     if phrasal_verb:
                         activity = activity + " " + phrasal_verb.lemma_
-                        phrasal_noun = next((noun for noun in phrasal_verb.children if (noun.pos_ == "NOUN")), None)
-
-                        if phrasal_noun:
-                            activity = activity + " " + phrasal_noun.text
 
                     activity = activity + " " + the_object.text
 
@@ -68,10 +72,23 @@ def parse(text):
                     output["activities"].append(activity)
 
             # End event detection
-            if token.pos_ == "VERB":
-                for child in token.children:
-                    if child.dep_ == "nsubjpass" or child.dep_ == "dobj":
-                        endevent = child.text + " " + token._.inflect('VBN')
+            if index == sentences_number:
+                if token.pos_ == "VERB":
+                    the_object = next((child for child in token.children if (child.dep_ == "nsubjpass" or child.dep_ == "dobj")), None)
+                    phrasal_verb = next((child for child in token.children if (child.pos_ == "ADP")), None)
+
+                    if not the_object and phrasal_verb:
+                        the_object = next((child for child in phrasal_verb.children if (child.dep_ == "pobj")), None)
+
+                    endevent = None
+
+                    if the_object:
+                        endevent = the_object.text + " " + token._.inflect('VBN')
+
+                    if the_object and phrasal_verb:
+                        endevent = the_object.text + " " + token._.inflect('VBN') + " " + phrasal_verb.text
+
+                    if endevent:
                         endevent = " ".join([word for word in endevent.split() if word.lower() not in determiners])
 
                         output["endevent"] = endevent
