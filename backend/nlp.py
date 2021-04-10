@@ -18,43 +18,54 @@ def parse(text):
         for token in sent:
             # First iteration: Detect startevent
             if token.pos_ == "VERB" and output["startevent"] == "":
-                for child in token.children:
-                    if child.dep_ == "nsubjpass" or child.dep_ == "dobj":
-                        startevent = child.text + " " + token._.inflect('VBN')
-                        startevent = " ".join([word for word in startevent.split() if word.lower() not in determiners])
+                the_object = next((child for child in token.children if (child.dep_ == "nsubjpass" or child.dep_ == "dobj")), None)
+                phrasal_verb = next((child for child in token.children if (child.pos_ == "ADP")), None)
 
-                        output["startevent"] = startevent
+                startevent = None
+
+                if the_object:
+                    startevent = the_object.text + " " + token._.inflect('VBN')
+
+                if the_object and phrasal_verb:
+                    startevent = the_object.text + " " + token._.inflect('VBN') + " " + phrasal_verb.text
+
+                if startevent:
+                    startevent = " ".join([word for word in startevent.split() if word.lower() not in determiners])
+
+                    output["startevent"] = startevent
             # Remaining iterations: Detect activities
             elif token.pos_ == "VERB":
                 if len([child for child in token.children if (child.pos_ == "VERB" and child.dep_ == "xcomp")]) > 0:
                     # Skip semi-modal verbs (e.g. needs to...)
                     continue
 
-                activity = token.lemma_
+                the_object = next((child for child in token.children if (child.dep_ == "nsubjpass" or child.dep_ == "dobj")), None)
+                phrasal_verb = next((child for child in token.children if (child.pos_ == "ADP")), None)
 
-                for child in token.children:
-                    # Find phrasal verbs
-                    if child.pos_ == "ADP":
-                        noun = next((noun for noun in child.children if (noun.pos_ == "NOUN")), None)
+                # Search object in case of a semi-modal verb
+                if not the_object:
+                    for parent in token.ancestors:
+                        if token in parent.children and token.dep_ == "xcomp":
+                            the_object = next(subject for subject in parent.children if (subject.dep_ == "nsubj"))
 
-                        activity = activity + " " + child.lemma_
+                activity = None
 
-                        if noun:
-                            activity = activity + " " + noun.text
+                if the_object:
+                    activity = token.lemma_
 
-                for child in token.children:
-                    if child.dep_ == "nsubjpass" or child.dep_ == "dobj":
-                        activity = activity + " " + child.text
+                    if phrasal_verb:
+                        activity = activity + " " + phrasal_verb.lemma_
+                        phrasal_noun = next((noun for noun in phrasal_verb.children if (noun.pos_ == "NOUN")), None)
 
-                # Find subject from semi-modal-verb
-                for parent in token.ancestors:
-                    if token in parent.children and token.dep_ == "xcomp":
-                        subject = next(subject for subject in parent.children if (subject.dep_ == "nsubj"))
-                        activity = activity + " " + subject.text
+                        if phrasal_noun:
+                            activity = activity + " " + phrasal_noun.text
 
-                activity = " ".join([word for word in activity.split() if word.lower() not in determiners])
+                    activity = activity + " " + the_object.text
 
-                output["activities"].append(activity)
+                if activity:
+                    activity = " ".join([word for word in activity.split() if word.lower() not in determiners])
+
+                    output["activities"].append(activity)
 
             # End event detection
             if token.pos_ == "VERB":
