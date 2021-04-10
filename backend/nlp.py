@@ -55,9 +55,9 @@ def parse(text):
             # Remaining iterations: Detect activities
             elif token.pos_ == "VERB":
                 # Detect condition
-                has_mark = next((child for child in token.children if (child.pos_ == "ADV")), None)
-                if has_mark:
-                    continue
+                has_mark = next((child for child in token.children if (child.pos_ == "ADV" and child in token.lefts)), None)
+                #if has_mark:
+                    #continue
 
                 if len([child for child in token.children if (child.pos_ == "VERB" and child.dep_ == "xcomp")]) > 0:
                     # Skip semi-modal verbs (e.g. needs to...)
@@ -95,7 +95,7 @@ def parse(text):
             if index == sentences_number:
                 if token.pos_ == "VERB":
                     # Make sure that only the last verb in a sentence is considered
-                    if len([child for child in token.children if (child.pos_ == "VERB")]) == 0:
+                    if len([child for child in token.children if (child.pos_ == "VERB" and child.dep_ != "ccomp")]) == 0:
                         the_object = next((child for child in token.children if (child.dep_ == "nsubjpass" or child.dep_ == "dobj")), None)
                         phrasal_verb = next((child for child in token.children if (child.pos_ == "ADP" and child.dep_ == "prt")), None)
 

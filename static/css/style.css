@@ -9,6 +9,11 @@ body {
     color: #fff;
 }
 
+::-moz-selection {
+    background-color: #21a1ff;
+    color: #fff;
+}
+
 #logo {
     margin-top: 50px;
 }

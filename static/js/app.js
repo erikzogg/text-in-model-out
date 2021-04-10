@@ -38,6 +38,9 @@ let initApp = function () {
             })
             .then(html => handleResponse(html))
             .catch(error => {
+                this.innerHTML = 'Create Process Model';
+                this.removeAttribute('disabled');
+
                 document.getElementById('process-model').innerHTML = error;
             });
     });
