@@ -1,0 +1,1 @@
+When an employee creates a new ticket, the service desk agent reads the description. On the basis of the description, the service desk agent categorizes the ticket. If the ticket does not contain enough information, the service desk agent rejects the ticket. Otherwise, the service desk agent tries to resolve the problem.

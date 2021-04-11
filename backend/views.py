@@ -1,5 +1,5 @@
 from django.http import HttpResponse
-from backend.nlp import parse
+from backend.nlp_simple import parse
 import json
 
 
