@@ -3,7 +3,7 @@ import lemminflect
 from spacy import displacy
 from pathlib import Path
 
-determiners = ['a', 'an', 'the']
+determiners = ['a', 'an', 'the', ',']
 
 
 def parse(text):
@@ -20,11 +20,31 @@ def parse(text):
 
     for index, sent in enumerate(doc.sents, 1):
         for token in sent:
+            conditional = next((child for child in token.children if (child.dep_ == "mark" and child.pos_ == "SCONJ" and child.text.lower() == "if")), None)
+            if conditional:
+                the_object = next((child for child in token.children if (child.dep_ == "nsubj")), None)
+
+                if the_object:
+                    neighbor_children = list(token.rights)
+                    condition_text = []
+                    while neighbor_children:
+                        for child in neighbor_children:
+                            condition_text.append(child.text)
+                            neighbor_children.remove(child)
+                            if child.rights:
+                                for subchild in child.rights:
+                                    neighbor_children.append(subchild)
+
+                    condition = the_object.text + " " + " ".join(condition_text)
+                    condition = " ".join([word for word in condition.split() if word.lower() not in determiners])
+
+                    result.append({'type': 'condition', 'value': condition, 'role': current_role})
+
             # Detect role
-            if token.pos_ == "VERB":
+            if token.pos_ == "VERB" and not conditional:
                 role = next((child for child in token.children if (child.dep_ == "nsubj")), None)
                 if role:
-                    not_suitable = next((child for child in token.children if (child.dep_ in ["mark", "xcomp", "ccomp"])), None)
+                    not_suitable = next((child for child in token.children if (child.dep_ in ["auxpass", "mark", "xcomp"])), None)
                     if not not_suitable:
                         rolename = role.text
                         rolename = " ".join([word for word in rolename.split() if word.lower() not in determiners])
@@ -34,7 +54,7 @@ def parse(text):
             # First iteration: Detect startevent
             if token.pos_ == "VERB" and output["startevent"] == "":
                 the_object = next((child for child in token.children if (child.dep_ == "nsubjpass" or child.dep_ == "dobj")), None)
-                phrasal_verb = next((child for child in token.children if (child.pos_ == "ADP" and child.dep_ == "prt")), None)
+                phrasal_verb = next((child for child in token.children if (child.pos_ == "ADP" and child.dep_ == "prt") or (child.pos_ == "ADP" and child.dep_ == "advmod")), None)
 
                 if not the_object and phrasal_verb:
                     the_object = next((child for child in phrasal_verb.children if (child.dep_ == "pobj")), None)
@@ -54,11 +74,6 @@ def parse(text):
                     result.append({'type': 'startevent', 'value': startevent, 'role': current_role})
             # Remaining iterations: Detect activities
             elif token.pos_ == "VERB":
-                # Detect condition
-                has_mark = next((child for child in token.children if (child.pos_ == "ADV" and child in token.lefts)), None)
-                #if has_mark:
-                    #continue
-
                 if len([child for child in token.children if (child.pos_ == "VERB" and child.dep_ == "xcomp")]) > 0:
                     # Skip semi-modal verbs (e.g. needs to...)
                     continue
