@@ -21,11 +21,39 @@ def parse(text):
         verbs = [token for token in sent if token.pos_ == "VERB"]
 
         for verb in verbs:
-            phrasal_verb = next((child for child in verb.children if (child.dep_ == "prt")), None)  # hand in, set up, ...
+            passive = is_passive(verb)
+            the_object = get_the_object(verb, passive)
+
+            if not the_object:
+                continue
+
+            phrasal_verb = get_phrasal_verb(verb)  # hand in, set up, ...
 
             if not phrasal_verb:
-                result.append({"type": "verb", "value": verb.lemma_})
+                result.append({"type": "verb", "value": verb.lemma_ + " " + the_object.lemma_})
             else:
-                result.append({"type": "verb", "value": verb.lemma_ + " " + phrasal_verb.lemma_})
+                result.append({"type": "verb", "value": verb.lemma_ + " " + phrasal_verb.lemma_ + " " + the_object.lemma_})
 
     return result
+
+
+def is_passive(verb):
+    has_auxpass = next((child for child in verb.children if (child.dep_ == "auxpass")), None)
+    has_nsubjpass = next((child for child in verb.children if (child.dep_ == "nsubjpass")), None)
+
+    if has_auxpass and has_nsubjpass:
+        return True
+    else:
+        return False
+
+
+def get_the_object(verb, passive):
+    if not passive:
+        the_object = next((child for child in verb.children if (child.dep_ == "dobj")), None)
+    else:
+        the_object = next((child for child in verb.children if (child.dep_ == "nsubjpass")), None)
+
+    return the_object
+
+def get_phrasal_verb(verb):
+    return next((child for child in verb.children if (child.dep_ == "prt")), None)
