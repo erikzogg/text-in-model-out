@@ -21,8 +21,10 @@ def parse(text):
         verbs = [token for token in sent if token.pos_ == "VERB"]
 
         for verb in verbs:
-            passive = is_passive(verb)
-            the_object = get_the_object(verb, passive)
+            if is_semimodal(verb):
+                continue
+
+            the_object = get_the_object(verb)
 
             if not the_object:
                 continue
@@ -37,6 +39,19 @@ def parse(text):
     return result
 
 
+def is_semimodal(verb):
+    has_xcomp = next((child for child in verb.children if (child.dep_ == "xcomp")), None)
+
+    if has_xcomp:
+        return True
+    else:
+        return False
+
+
+def get_parent_verb(verb):
+    return next((ancestor for ancestor in verb.ancestors if (verb in ancestor.children and verb.dep_ == "xcomp")), None)
+
+
 def is_passive(verb):
     has_auxpass = next((child for child in verb.children if (child.dep_ == "auxpass")), None)
     has_nsubjpass = next((child for child in verb.children if (child.dep_ == "nsubjpass")), None)
@@ -47,13 +62,29 @@ def is_passive(verb):
         return False
 
 
-def get_the_object(verb, passive):
-    if not passive:
+def get_the_object(verb):
+    passive = is_passive(verb)
+    parent_verb = get_parent_verb(verb)
+
+    print(parent_verb)
+
+    if parent_verb:
+        passive = is_passive(parent_verb)
+
+        if passive:
+            the_object = next((child for child in parent_verb.children if (child.dep_ == "nsubjpass")), None)
+        else:
+            the_object = next((child for child in verb.children if (child.dep_ == "dobj")), None)
+
+            if not the_object:
+                the_object = next((child for child in parent_verb.children if (child.dep_ == "nsubj")), None)
+    elif not passive:
         the_object = next((child for child in verb.children if (child.dep_ == "dobj")), None)
     else:
         the_object = next((child for child in verb.children if (child.dep_ == "nsubjpass")), None)
 
     return the_object
+
 
 def get_phrasal_verb(verb):
     return next((child for child in verb.children if (child.dep_ == "prt")), None)
