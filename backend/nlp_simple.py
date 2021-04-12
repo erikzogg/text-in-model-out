@@ -1,6 +1,7 @@
 import spacy
 import lemminflect
 from spacy import displacy
+from spacy.lang.en.stop_words import STOP_WORDS
 from pathlib import Path
 
 
@@ -15,7 +16,7 @@ def parse(text):
     output_path = Path("./dependency_plot.svg")
     output_path.open("w", encoding="utf-8").write(svg)
 
-    result = []
+    elements = []
 
     for sent in doc.sents:
         verbs = [token for token in sent if token.pos_ == "VERB"]
@@ -29,14 +30,9 @@ def parse(text):
             if not the_object:
                 continue
 
-            phrasal_verb = get_phrasal_verb(verb)  # hand in, set up, ...
+            elements.append({"object": the_object, "verb": verb})
 
-            if not phrasal_verb:
-                result.append({"type": "verb", "value": verb.lemma_ + " " + the_object.lemma_})
-            else:
-                result.append({"type": "verb", "value": verb.lemma_ + " " + phrasal_verb.lemma_ + " " + the_object.lemma_})
-
-    return result
+    return parse_elements(elements)
 
 
 def is_semimodal(verb):
@@ -66,8 +62,6 @@ def get_the_object(verb):
     passive = is_passive(verb)
     parent_verb = get_parent_verb(verb)
 
-    print(parent_verb)
-
     if parent_verb:
         passive = is_passive(parent_verb)
 
@@ -88,3 +82,33 @@ def get_the_object(verb):
 
 def get_phrasal_verb(verb):
     return next((child for child in verb.children if (child.dep_ == "prt")), None)
+
+
+def parse_elements(elements):
+    result = []
+
+    for element in elements:
+        the_object = element['object']
+        verb = element['verb']
+        phrasal_verb = get_phrasal_verb(verb)  # hand in, set up, ...
+
+        the_object = " ".join([word for word in the_object.lemma_.split() if word.lower() not in STOP_WORDS])
+
+        if element == elements[0]:
+            if not phrasal_verb:
+                result.append({"type": "startevent", "value": the_object + " " + verb._.inflect("VBN")})
+            else:
+                result.append({"type": "startevent", "value": the_object + " " + verb._.inflect("VBN") + " " + phrasal_verb.lemma_})
+        else:
+            if not phrasal_verb:
+                result.append({"type": "activity", "value": verb.lemma_ + " " + the_object})
+            else:
+                result.append({"type": "activity", "value": verb.lemma_ + " " + phrasal_verb.lemma_ + " " + the_object})
+
+        if element == elements[-1]:
+            if not phrasal_verb:
+                result.append({"type": "endevent", "value": the_object + " " + verb._.inflect("VBN")})
+            else:
+                result.append({"type": "endevent", "value": the_object + " " + verb._.inflect("VBN") + " " + phrasal_verb.lemma_})
+
+    return result
