@@ -84,8 +84,34 @@ def get_phrasal_verb(verb):
     return next((child for child in verb.children if (child.dep_ == "prt")), None)
 
 
+def get_actor(verb):
+    passive = is_passive(verb)
+    parent_verb = get_parent_verb(verb)
+
+    if parent_verb:
+        agent = next((child for child in verb.children if (child.dep_ == "agent")), None)
+
+        if agent:
+            actor = next((child for child in agent.children if (child.dep_ == "pobj")), None)
+        else:
+            actor = next((child for child in parent_verb.children if (child.dep_ == "nsubj")), None)
+    elif not passive:
+        actor = next((child for child in verb.children if (child.dep_ == "nsubj")), None)
+    else:
+        agent = next((child for child in verb.children if (child.dep_ == "agent")), None)
+
+        if agent:
+            actor = next((child for child in agent.children if (child.dep_ == "pobj")), None)
+        else:
+            actor = None
+
+    return actor
+
+
 def parse_elements(elements):
     result = []
+
+    current_actor = "Default"
 
     for element in elements:
         the_object = element['object']
@@ -94,21 +120,28 @@ def parse_elements(elements):
 
         the_object = " ".join([word for word in the_object.lemma_.split() if word.lower() not in STOP_WORDS])
 
+        actor = get_actor(verb)
+
+        if actor:
+            current_actor = actor.lemma_
+
+        actor = " ".join([word for word in current_actor.split() if word.lower() not in STOP_WORDS])
+
         if element == elements[0]:
             if not phrasal_verb:
-                result.append({"type": "startevent", "value": the_object + " " + verb._.inflect("VBN")})
+                result.append({"type": "startevent", "value": the_object + " " + verb._.inflect("VBN"), "actor": actor})
             else:
-                result.append({"type": "startevent", "value": the_object + " " + verb._.inflect("VBN") + " " + phrasal_verb.lemma_})
+                result.append({"type": "startevent", "value": the_object + " " + verb._.inflect("VBN") + " " + phrasal_verb.lemma_, "actor": actor})
         else:
             if not phrasal_verb:
-                result.append({"type": "activity", "value": verb.lemma_ + " " + the_object})
+                result.append({"type": "activity", "value": verb.lemma_ + " " + the_object, "actor": actor})
             else:
-                result.append({"type": "activity", "value": verb.lemma_ + " " + phrasal_verb.lemma_ + " " + the_object})
+                result.append({"type": "activity", "value": verb.lemma_ + " " + phrasal_verb.lemma_ + " " + the_object, "actor": actor})
 
         if element == elements[-1]:
             if not phrasal_verb:
-                result.append({"type": "endevent", "value": the_object + " " + verb._.inflect("VBN")})
+                result.append({"type": "endevent", "value": the_object + " " + verb._.inflect("VBN"), "actor": actor})
             else:
-                result.append({"type": "endevent", "value": the_object + " " + verb._.inflect("VBN") + " " + phrasal_verb.lemma_})
+                result.append({"type": "endevent", "value": the_object + " " + verb._.inflect("VBN") + " " + phrasal_verb.lemma_, "actor": actor})
 
     return result
