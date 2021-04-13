@@ -22,6 +22,12 @@ def parse(text):
         verbs = [token for token in sent if token.pos_ == "VERB"]
 
         for verb in verbs:
+            condition = get_condition(verb)
+
+            if condition:
+                elements.append({"type": "condition", "condition": condition})
+                continue
+
             if is_semimodal(verb):
                 continue
 
@@ -30,9 +36,68 @@ def parse(text):
             if not the_object:
                 continue
 
-            elements.append({"object": the_object, "verb": verb})
+            elements.append({"type": "verb", "object": the_object, "verb": verb})
 
     return parse_elements(elements)
+
+
+def get_condition(verb):
+    passive = is_passive(verb)
+    parent_verb = get_parent_verb(verb)
+
+    mark = next((child for child in verb.children if (child.dep_ == "mark" and child.text.lower() in ["if"])), None)
+
+    if mark:
+        if passive:
+            nsubjpass = next((child for child in verb.children if (child.dep_ == "nsubjpass")), None)
+
+            return nsubjpass.text + "  " + verb.text + "?"
+        else:
+            nsubj = next((child for child in verb.children if (child.dep_ == "nsubj")), None)
+            aux = next((child for child in verb.children if (child.dep_ == "aux")), None)
+            negative = next((child for child in verb.children if (child.dep_ == "neg" and child in verb.lefts)), None)
+            dobj = next((child for child in verb.children if (child.dep_ == "dobj")), None)
+
+            if not dobj:
+                neighbor_children = list(verb.rights)
+                condition_text = []
+
+                while neighbor_children:
+                    for child in neighbor_children:
+                        condition_text.append(child.text)
+                        neighbor_children.remove(child)
+                        if child.rights:
+                            for subchild in child.rights:
+                                neighbor_children.append(subchild)
+
+                dobj = " ".join(condition_text)
+            else:
+                dobj = dobj.text
+
+            conditional_label = nsubj.text
+
+            if aux:
+                conditional_label += " " + aux.text
+
+            if negative:
+                conditional_label += " " + negative.text
+
+            conditional_label += " " + verb.text + " " + dobj + "?"
+
+            return conditional_label
+
+    prep = next((child for child in verb.children if (child.dep_ == "prep")), None)
+
+    if prep:
+        pobj = next((child for child in prep.children if (child.dep_ == "pobj")), None)
+
+        if pobj:
+            conditional_conj = prep.lemma_ + " " + pobj.lemma_
+
+            if conditional_conj.lower() in ["for the case", "in case", "in the case"]:
+                return True
+
+    return False
 
 
 def is_semimodal(verb):
@@ -114,34 +179,40 @@ def parse_elements(elements):
     current_actor = "Default"
 
     for element in elements:
-        the_object = element['object']
-        verb = element['verb']
-        phrasal_verb = get_phrasal_verb(verb)  # hand in, set up, ...
+        if element["type"] == "verb":
+            the_object = element['object']
+            verb = element['verb']
+            phrasal_verb = get_phrasal_verb(verb)  # hand in, set up, ...
 
-        the_object = " ".join([word for word in the_object.lemma_.split() if word.lower() not in STOP_WORDS])
+            the_object = " ".join([word for word in the_object.lemma_.split() if word.lower() not in STOP_WORDS])
 
-        actor = get_actor(verb)
+            actor = get_actor(verb)
 
-        if actor:
-            current_actor = actor.lemma_
+            if actor:
+                current_actor = actor.lemma_
 
-        actor = " ".join([word for word in current_actor.split() if word.lower() not in STOP_WORDS])
+            actor = " ".join([word for word in current_actor.split() if word.lower() not in STOP_WORDS])
 
-        if element == elements[0]:
-            if not phrasal_verb:
-                result.append({"type": "startevent", "value": the_object + " " + verb._.inflect("VBN"), "actor": actor})
+            if element == elements[0]:
+                if not phrasal_verb:
+                    result.append({"type": "start_event", "value": the_object + " " + verb._.inflect("VBN"), "actor": actor})
+                else:
+                    result.append({"type": "start_event", "value": the_object + " " + verb._.inflect("VBN") + " " + phrasal_verb.lemma_, "actor": actor})
             else:
-                result.append({"type": "startevent", "value": the_object + " " + verb._.inflect("VBN") + " " + phrasal_verb.lemma_, "actor": actor})
-        else:
-            if not phrasal_verb:
-                result.append({"type": "activity", "value": verb.lemma_ + " " + the_object, "actor": actor})
-            else:
-                result.append({"type": "activity", "value": verb.lemma_ + " " + phrasal_verb.lemma_ + " " + the_object, "actor": actor})
+                if not phrasal_verb:
+                    result.append({"type": "activity", "value": verb.lemma_ + " " + the_object, "actor": actor})
+                else:
+                    result.append({"type": "activity", "value": verb.lemma_ + " " + phrasal_verb.lemma_ + " " + the_object, "actor": actor})
 
-        if element == elements[-1]:
-            if not phrasal_verb:
-                result.append({"type": "endevent", "value": the_object + " " + verb._.inflect("VBN"), "actor": actor})
-            else:
-                result.append({"type": "endevent", "value": the_object + " " + verb._.inflect("VBN") + " " + phrasal_verb.lemma_, "actor": actor})
+            if element == elements[-1]:
+                if not phrasal_verb:
+                    result.append({"type": "end_event", "value": the_object + " " + verb._.inflect("VBN"), "actor": actor})
+                else:
+                    result.append({"type": "end_event", "value": the_object + " " + verb._.inflect("VBN") + " " + phrasal_verb.lemma_, "actor": actor})
+        elif element["type"] == "condition":
+            condition = element["condition"]
+
+            condition = " ".join([word for word in condition.split() if word.lower() not in ["a", "an", "the"]])
+            result.append({"type": "xor_start", "value": condition, "actor": actor})
 
     return result
