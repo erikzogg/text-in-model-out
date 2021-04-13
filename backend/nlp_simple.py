@@ -22,11 +22,14 @@ def parse(text):
         verbs = [token for token in sent if token.pos_ == "VERB"]
 
         for verb in verbs:
-            condition = get_condition(verb)
+            condition = detect_condition(verb)
 
             if condition:
                 elements.append({"type": "condition", "condition": condition})
                 continue
+
+            if detect_flowchange(verb):
+                elements.append({"type": "change_flow"})
 
             if is_semimodal(verb):
                 continue
@@ -41,9 +44,9 @@ def parse(text):
     return parse_elements(elements)
 
 
-def get_condition(verb):
+def detect_condition(verb):
     passive = is_passive(verb)
-    parent_verb = get_parent_verb(verb)
+    parent_verb = get_parent_verb(verb) # ToDo
 
     mark = next((child for child in verb.children if (child.dep_ == "mark" and child.text.lower() in ["if"])), None)
 
@@ -95,7 +98,16 @@ def get_condition(verb):
             conditional_conj = prep.lemma_ + " " + pobj.lemma_
 
             if conditional_conj.lower() in ["for the case", "in case", "in the case"]:
-                return True
+                return conditional_conj
+
+    return False
+
+
+def detect_flowchange(verb):
+    advmod = next((child for child in verb.children if (child.dep_ == "advmod" and child.text.lower() in ["alternatively", "else", "otherwise"])), None)
+
+    if advmod:
+        return True
 
     return False
 
@@ -155,11 +167,14 @@ def get_actor(verb):
 
     if parent_verb:
         agent = next((child for child in verb.children if (child.dep_ == "agent")), None)
+        has_auxpass = next((child for child in verb.children if (child.dep_ == "auxpass")), None)
 
         if agent:
             actor = next((child for child in agent.children if (child.dep_ == "pobj")), None)
-        else:
+        elif not has_auxpass:
             actor = next((child for child in parent_verb.children if (child.dep_ == "nsubj")), None)
+        else:
+            actor = None
     elif not passive:
         actor = next((child for child in verb.children if (child.dep_ == "nsubj")), None)
     else:
@@ -189,30 +204,30 @@ def parse_elements(elements):
             actor = get_actor(verb)
 
             if actor:
-                current_actor = actor.lemma_
-
-            actor = " ".join([word for word in current_actor.split() if word.lower() not in STOP_WORDS])
+                current_actor = " ".join([word for word in actor.lemma_.split() if word.lower() not in STOP_WORDS])
 
             if element == elements[0]:
                 if not phrasal_verb:
-                    result.append({"type": "start_event", "value": the_object + " " + verb._.inflect("VBN"), "actor": actor})
+                    result.append({"type": "start_event", "value": the_object + " " + verb._.inflect("VBN"), "actor": current_actor})
                 else:
-                    result.append({"type": "start_event", "value": the_object + " " + verb._.inflect("VBN") + " " + phrasal_verb.lemma_, "actor": actor})
+                    result.append({"type": "start_event", "value": the_object + " " + verb._.inflect("VBN") + " " + phrasal_verb.lemma_, "actor": current_actor})
             else:
                 if not phrasal_verb:
-                    result.append({"type": "activity", "value": verb.lemma_ + " " + the_object, "actor": actor})
+                    result.append({"type": "activity", "value": verb.lemma_ + " " + the_object, "actor": current_actor})
                 else:
-                    result.append({"type": "activity", "value": verb.lemma_ + " " + phrasal_verb.lemma_ + " " + the_object, "actor": actor})
+                    result.append({"type": "activity", "value": verb.lemma_ + " " + phrasal_verb.lemma_ + " " + the_object, "actor": current_actor})
 
             if element == elements[-1]:
                 if not phrasal_verb:
-                    result.append({"type": "end_event", "value": the_object + " " + verb._.inflect("VBN"), "actor": actor})
+                    result.append({"type": "end_event", "value": the_object + " " + verb._.inflect("VBN"), "actor": current_actor})
                 else:
-                    result.append({"type": "end_event", "value": the_object + " " + verb._.inflect("VBN") + " " + phrasal_verb.lemma_, "actor": actor})
+                    result.append({"type": "end_event", "value": the_object + " " + verb._.inflect("VBN") + " " + phrasal_verb.lemma_, "actor": current_actor})
         elif element["type"] == "condition":
             condition = element["condition"]
 
             condition = " ".join([word for word in condition.split() if word.lower() not in ["a", "an", "the"]])
-            result.append({"type": "xor_start", "value": condition, "actor": actor})
+            result.append({"type": "xor_start", "value": condition, "actor": current_actor})
+        elif element["type"] == "change_flow":
+            result.append({"type": "change_flow", "actor": current_actor})
 
     return result
