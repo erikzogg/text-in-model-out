@@ -7,8 +7,14 @@ var _bpmnJsCli = _interopRequireDefault(require("bpmn-js-cli"));
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
-window.BpmnJS = _Modeler.default;
-window.CliModule = _bpmnJsCli.default;
+let modeler = new _Modeler.default({
+  container: '#process-model',
+  additionalModules: [_bpmnJsCli.default],
+  cli: {
+    bindTo: 'cli'
+  }
+});
+window.modeler = modeler;
 
 },{"bpmn-js-cli":2,"bpmn-js/lib/Modeler":26}],2:[function(require,module,exports){
 "use strict";

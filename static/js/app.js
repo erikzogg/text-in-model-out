@@ -1,5 +1,3 @@
-let modeler;
-
 const defaultXml = `<?xml version="1.0" encoding="UTF-8"?>
                     <bpmn:definitions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" id="Definitions_1" targetNamespace="http://bpmn.io/schema/bpmn">
                         <bpmn:process id="BPMNProcess_1" isExecutable="false"/>
@@ -67,16 +65,6 @@ let initApp = function () {
                 });
         });
     });
-
-    modeler = new BpmnJS({
-        container: '#process-model',
-        additionalModules: [
-            CliModule
-        ],
-        cli: {
-            bindTo: 'cli'
-        }
-    });
 };
 
 let checkProcessDescription = function (text) {
@@ -100,12 +88,12 @@ let handleResponse = function (data) {
 
     try {
         modeler.importXML(defaultXml, function () {
-            var canvas = modeler.get("canvas");
-            var elementFactory = modeler.get("elementFactory");
-            var modeling = modeler.get("modeling");
+            var canvas = modeler.get('canvas');
+            var elementFactory = modeler.get('elementFactory');
+            var modeling = modeler.get('modeling');
 
             const participant = elementFactory.createParticipantShape();
-            participant.businessObject.name = "Organisation";
+            participant.businessObject.name = 'Organisation';
 
             modeling.createShape(
                 participant,
