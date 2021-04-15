@@ -1,0 +1,21 @@
+{
+    "name": "bachelor-thesis",
+    "version": "1.0.0",
+    "description": "Source Code of My Bachelor Thesis",
+    "main": "main.js",
+    "scripts": {
+        "bpmn": "browserify -p esmify main.js -o static/js/bpmn.js"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/erikzogg/bachelor-thesis.git"
+    },
+    "author": "",
+    "license": "ISC",
+    "dependencies": {
+        "bpmn-js": "^8.3.0",
+        "bpmn-js-cli": "^2.0.2",
+        "browserify": "^17.0.0",
+        "esmify": "^2.1.1"
+    }
+}

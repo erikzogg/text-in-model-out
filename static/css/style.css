@@ -49,3 +49,7 @@ textarea {
 footer {
     margin-bottom: 50px;
 }
+
+.djs-palette {
+    display: none;
+}

@@ -6,3 +6,4 @@ venv/
 *.log
 db.sqlite3
 dependency_plot.svg
+node_modules

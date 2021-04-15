@@ -46,7 +46,7 @@ def parse(text):
 
 def detect_condition(verb):
     passive = is_passive(verb)
-    parent_verb = get_parent_verb(verb) # ToDo
+    parent_verb = get_parent_verb(verb)  # ToDo
 
     mark = next((child for child in verb.children if (child.dep_ == "mark" and child.text.lower() in ["if"])), None)
 
@@ -204,7 +204,7 @@ def parse_elements(elements):
             actor = get_actor(verb)
 
             if actor:
-                current_actor = " ".join([word for word in actor.lemma_.split() if word.lower() not in STOP_WORDS])
+                current_actor = " ".join([word for word in actor.lemma_.split() if word.lower() not in STOP_WORDS]).title()
 
             if element == elements[0]:
                 if not phrasal_verb:

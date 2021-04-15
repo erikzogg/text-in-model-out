@@ -6,4 +6,4 @@ import json
 def index(request):
     results = parse(request.POST['text'])
 
-    return HttpResponse("<pre>" + json.dumps(results, indent=4) + "</pre>")
+    return HttpResponse(json.dumps(results))

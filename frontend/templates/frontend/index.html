@@ -73,22 +73,7 @@
         </footer>
 
         <script src="{% static 'js/bootstrap.bundle.min.js' %}"></script>
-        <script src="https://unpkg.com/bpmn-js@8.3.0/dist/bpmn-viewer.production.min.js"></script>
+        <script src="{% static 'js/bpmn.js' %}"></script>
         <script src="{% static 'js/app.js' %}"></script>
-
-        <script>
-            var viewer = new BpmnJS({
-                container: '#process-model'
-            });
-
-            /*fetch('http://127.0.0.1:8080')
-                .then(response => response.text())
-                .then(data => {
-                    viewer.importXML(data);
-                })
-                .then(function () {
-                    viewer.get('canvas').zoom('fit-viewport');
-                });*/
-        </script>
     </body>
 </html>
