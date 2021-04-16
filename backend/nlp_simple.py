@@ -208,6 +208,9 @@ def parse_elements(elements):
             if actor:
                 current_actor = " ".join([word for word in actor.lemma_.split() if word.lower() not in STOP_WORDS]).title()
 
+                if current_actor == "":
+                    current_actor = "Default"
+
             if element == elements[0]:
                 if not phrasal_verb:
                     value = (the_object + " " + verb._.inflect("VBN")).title()

@@ -1,11 +1,3 @@
-const defaultXml = `<?xml version="1.0" encoding="UTF-8"?>
-                    <bpmn:definitions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" id="Definitions_1" targetNamespace="http://bpmn.io/schema/bpmn">
-                        <bpmn:process id="BPMNProcess_1" isExecutable="false"/>
-                        <bpmndi:BPMNDiagram id="BPMNDiagram_1">
-                            <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="BPMNProcess_1"/>
-                        </bpmndi:BPMNDiagram>
-                    </bpmn:definitions>`
-
 document.addEventListener('DOMContentLoaded', function () {
     initApp();
 });
@@ -86,6 +78,7 @@ let handleResponse = async function (data) {
         }
     });
 
+    modeler.clear();
     await modeler.createDiagram();
 
     var canvas = modeler.get('canvas');
@@ -98,38 +91,33 @@ let handleResponse = async function (data) {
     const participant = elementFactory.createParticipantShape();
     cli.setLabel(participant, 'Organisation');
 
-    modeling.createShape(participant, {x: 0, y: 0}, elementRegistry.get('Process_1'));
+    modeling.createShape(participant, {x: 300, y: 125}, elementRegistry.get('Process_1'));
     modeling.splitLane(participant, Object.keys(actors).length);
 
     const lanes = participant.children;
 
-    let laneReferences = [];
+    let lanesPosition = [];
 
     actors.forEach(function (actor, i) {
-        laneReferences[actor] = lanes[i];
+        lanesPosition[actor.replace(/\s/g, '')] = i;
         modeling.updateProperties(lanes[i], {id: actor.replace(/\s/g, ''), name: actor});
     });
 
     elements.forEach(function (element, index) {
-        switch (element.type) {
-            case 'bpmn:EndEvent':
-                let endEvent = cli.append(elementRegistry.get(element.predecessor), 'bpmn:EndEvent');
-                modeling.updateProperties(elementRegistry.get(endEvent), {id: element.id, name: element.value});
-                break;
-            case 'bpmn:ExclusiveGateway':
-                let xorGateway = cli.append(elementRegistry.get(element.predecessor), 'bpmn:ExclusiveGateway');
-                modeling.updateProperties(elementRegistry.get(xorGateway), {id: element.id, name: element.value});
-                break;
-            case 'bpmn:StartEvent':
-                let startEvent = cli.append(elementRegistry.get(element.actor.replace(/\s/g, '')), 'bpmn:StartEvent');
-                modeling.updateProperties(elementRegistry.get(startEvent), {id: element.id, name: element.value});
-                break;
-            case 'bpmn:Task':
-                let task = cli.append(elementRegistry.get(element.predecessor), 'bpmn:Task');
-                modeling.updateProperties(elementRegistry.get(task), {id: element.id, name: element.value});
-                break;
-            default:
-                break;
+        let parentElement = elementRegistry.get(element.actor.replace(/\s/g, ''));
+        let bpmnElement = modeling.createShape(
+            {type: element.type},
+            {x: 150 * index, y: lanesPosition[element.actor.replace(/\s/g, '')] * 200},
+            participant
+        );
+        modeling.updateProperties(bpmnElement, {id: element.id, name: element.value});
+
+        if (element.predecessor != null) {
+            cli.connect(
+                element.predecessor,
+                element.id,
+                'bpmn:SequenceFlow'
+            );
         }
     });
 
@@ -137,5 +125,4 @@ let handleResponse = async function (data) {
 
     const result = await modeler.saveXML();
     const {xml} = result;
-    console.log(xml);
 };
