@@ -1,9 +1,13 @@
-from django.http import HttpResponse
-from backend.nlp_simple import parse
-import json
+from django.http import JsonResponse
+from backend.nlp import parse
 
 
 def index(request):
-    results = parse(request.POST['text'])
+    process_description = request.POST.get('process_description', False)
 
-    return HttpResponse(json.dumps(results))
+    if process_description:
+        results = parse(process_description)
+    else:
+        results = []
+
+    return JsonResponse(results, safe=False)

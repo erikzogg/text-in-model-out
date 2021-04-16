@@ -50,6 +50,6 @@ footer {
     margin-bottom: 50px;
 }
 
-.djs-palette {
+.djs-palette, .djs-overlay-container {
     display: none;
 }

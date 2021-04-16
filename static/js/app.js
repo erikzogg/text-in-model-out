@@ -16,7 +16,7 @@ let initApp = function () {
         this.innerHTML = 'Please wait...';
 
         let formData = new FormData();
-        formData.append('text', document.getElementById('process-description').value);
+        formData.append('process_description', document.getElementById('process-description').value);
 
         const request = new Request('/api', {
             headers: {'X-CSRFToken': document.getElementById('csrf_token').value},
@@ -145,7 +145,6 @@ let handleResponse = async function (data) {
     });
 
     elements.forEach(function (element, index) {
-        let parentElement = elementRegistry.get(element.actor.replace(/\s/g, ''));
         let bpmnElement = modeling.createShape(
             {type: element.type},
             {x: 150 * index, y: lanesPosition[element.actor.replace(/\s/g, '')] * 200},
@@ -159,6 +158,14 @@ let handleResponse = async function (data) {
                 element.id,
                 'bpmn:SequenceFlow'
             );
+        } else if (element.predecessors != null) {
+            element.predecessors.forEach(function (predecessor) {
+                cli.connect(
+                    predecessor,
+                    element.id,
+                    'bpmn:SequenceFlow'
+                );
+            });
         }
     });
 

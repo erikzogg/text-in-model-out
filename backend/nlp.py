@@ -1,146 +1,291 @@
 import spacy
 import lemminflect
 from spacy import displacy
+from spacy.lang.en.stop_words import STOP_WORDS
 from pathlib import Path
-
-determiners = ['a', 'an', 'the', ',']
 
 
 def parse(text):
-    output = {"startevent": "", "activities": [], "endevent": ""}
-    result = []
-
-    nlp = spacy.load("en_core_web_sm")
+    nlp = spacy.load("en_core_web_trf")
     nlp.add_pipe("merge_noun_chunks")
 
     doc = nlp(text)
-
-    sentences_number = len(list(doc.sents))
-    current_role = "Default"
-
-    for index, sent in enumerate(doc.sents, 1):
-        for token in sent:
-            conditional = next((child for child in token.children if (child.dep_ == "mark" and child.pos_ == "SCONJ" and child.text.lower() == "if")), None)
-            if conditional:
-                the_object = next((child for child in token.children if (child.dep_ == "nsubj")), None)
-
-                if the_object:
-                    neighbor_children = list(token.rights)
-                    condition_text = []
-                    while neighbor_children:
-                        for child in neighbor_children:
-                            condition_text.append(child.text)
-                            neighbor_children.remove(child)
-                            if child.rights:
-                                for subchild in child.rights:
-                                    neighbor_children.append(subchild)
-
-                    condition = the_object.text + " " + " ".join(condition_text)
-                    condition = " ".join([word for word in condition.split() if word.lower() not in determiners])
-
-                    result.append({'type': 'condition', 'value': condition, 'role': current_role})
-
-            # Detect role
-            if token.pos_ == "VERB" and not conditional:
-                role = next((child for child in token.children if (child.dep_ == "nsubj")), None)
-                if role:
-                    not_suitable = next((child for child in token.children if (child.dep_ in ["auxpass", "mark", "xcomp"])), None)
-                    if not not_suitable:
-                        rolename = role.text
-                        rolename = " ".join([word for word in rolename.split() if word.lower() not in determiners])
-
-                        current_role = rolename
-
-            # First iteration: Detect startevent
-            if token.pos_ == "VERB" and output["startevent"] == "":
-                the_object = next((child for child in token.children if (child.dep_ == "nsubjpass" or child.dep_ == "dobj")), None)
-                phrasal_verb = next((child for child in token.children if (child.pos_ == "ADP" and child.dep_ == "prt") or (child.pos_ == "ADP" and child.dep_ == "advmod")), None)
-
-                if not the_object and phrasal_verb:
-                    the_object = next((child for child in phrasal_verb.children if (child.dep_ == "pobj")), None)
-
-                startevent = None
-
-                if the_object:
-                    startevent = the_object.text + " " + token._.inflect('VBN')
-
-                if the_object and phrasal_verb:
-                    startevent = the_object.text + " " + token._.inflect('VBN') + " " + phrasal_verb.text
-
-                if startevent:
-                    startevent = " ".join([word for word in startevent.split() if word.lower() not in determiners])
-
-                    output["startevent"] = startevent
-                    result.append({'type': 'startevent', 'value': startevent, 'role': current_role})
-            # Remaining iterations: Detect activities
-            elif token.pos_ == "VERB":
-                if len([child for child in token.children if (child.pos_ == "VERB" and child.dep_ == "xcomp")]) > 0:
-                    # Skip semi-modal verbs (e.g. needs to...)
-                    continue
-
-                the_object = next((child for child in token.children if (child.dep_ == "nsubjpass" or child.dep_ == "dobj")), None)
-                phrasal_verb = next((child for child in token.children if (child.pos_ == "ADP" and child.dep_ == "prt")), None)
-
-                if not the_object and phrasal_verb:
-                    the_object = next((child for child in phrasal_verb.children if (child.dep_ == "pobj")), None)
-
-                # Search object in case of a semi-modal verb
-                if not the_object:
-                    for parent in token.ancestors:
-                        if token in parent.children and token.dep_ == "xcomp":
-                            the_object = next(subject for subject in parent.children if (subject.dep_ == "nsubj"))
-
-                activity = None
-
-                if the_object:
-                    activity = token.lemma_
-
-                    if phrasal_verb:
-                        activity = activity + " " + phrasal_verb.lemma_
-
-                    activity = activity + " " + the_object.text
-
-                if activity:
-                    activity = " ".join([word for word in activity.split() if word.lower() not in determiners])
-
-                    output["activities"].append(activity)
-                    result.append({'type': 'activity', 'value': activity, 'role': current_role})
-
-            # End event detection
-            if index == sentences_number:
-                if token.pos_ == "VERB":
-                    # Make sure that only the last verb in a sentence is considered
-                    if len([child for child in token.children if (child.pos_ == "VERB" and child.dep_ != "ccomp")]) == 0:
-                        the_object = next((child for child in token.children if (child.dep_ == "nsubjpass" or child.dep_ == "dobj")), None)
-                        phrasal_verb = next((child for child in token.children if (child.pos_ == "ADP" and child.dep_ == "prt")), None)
-
-                        if not the_object and phrasal_verb:
-                            the_object = next((child for child in phrasal_verb.children if (child.dep_ == "pobj")), None)
-
-                        if not the_object:
-                            for parent in token.ancestors:
-                                if token in parent.children and token.dep_ == "xcomp":
-                                    the_object = next(subject for subject in parent.children if (subject.dep_ == "nsubj"))
-
-                        endevent = None
-
-                        if the_object:
-                            endevent = the_object.text + " " + token._.inflect('VBN')
-
-                        if the_object and phrasal_verb:
-                            endevent = the_object.text + " " + token._.inflect('VBN') + " " + phrasal_verb.text
-
-                        if endevent:
-                            endevent = " ".join([word for word in endevent.split() if word.lower() not in determiners])
-
-                            output["endevent"] = endevent
-
-    if not output["endevent"] == "":
-        result.append({'type': 'endevent', 'value': output["endevent"], 'role': current_role})
 
     svg = displacy.render(doc, style="dep")
 
     output_path = Path("./dependency_plot.svg")
     output_path.open("w", encoding="utf-8").write(svg)
+
+    elements = []
+    flow_join = False
+    last_verb = None
+
+    for sent in doc.sents:
+        verbs = [token for token in sent if token.pos_ == "VERB"]
+
+        for verb in verbs:
+            condition = detect_condition(verb)
+
+            if condition:
+                elements.append({"type": "condition", "condition": condition})
+                continue
+
+            if detect_flowchange(verb):
+                elements.append({"type": "change_flow", "last_verb": last_verb})
+                flow_join = True
+
+            if is_semimodal(verb):
+                continue
+
+            the_object = get_the_object(verb)
+
+            if not the_object:
+                continue
+
+            elements.append({"type": "verb", "object": the_object, "verb": verb})
+            last_verb = verb
+
+        if flow_join:
+            elements.append({"type": "join_flow"})
+            flow_join = False
+
+    return parse_elements(elements)
+
+
+def detect_condition(verb):
+    passive = is_passive(verb)
+    parent_verb = get_parent_verb(verb)  # ToDo
+
+    mark = next((child for child in verb.children if (child.dep_ == "mark" and child.text.lower() in ["if"])), None)
+
+    if mark:
+        if passive:
+            nsubjpass = next((child for child in verb.children if (child.dep_ == "nsubjpass")), None)
+
+            return nsubjpass.text + "  " + verb.text + "?"
+        else:
+            nsubj = next((child for child in verb.children if (child.dep_ == "nsubj")), None)
+            aux = next((child for child in verb.children if (child.dep_ == "aux")), None)
+            negative = next((child for child in verb.children if (child.dep_ == "neg" and child in verb.lefts)), None)
+            dobj = next((child for child in verb.children if (child.dep_ == "dobj")), None)
+
+            if not dobj:
+                neighbor_children = list(verb.rights)
+                condition_text = []
+
+                while neighbor_children:
+                    for child in neighbor_children:
+                        condition_text.append(child.text)
+                        neighbor_children.remove(child)
+                        if child.rights:
+                            for subchild in child.rights:
+                                neighbor_children.append(subchild)
+
+                dobj = " ".join(condition_text)
+            else:
+                dobj = dobj.text
+
+            conditional_label = nsubj.text
+
+            if aux:
+                conditional_label += " " + aux.text
+
+            if negative:
+                conditional_label += " " + negative.text
+
+            conditional_label += " " + verb.text + " " + dobj + "?"
+
+            return conditional_label
+
+    prep = next((child for child in verb.children if (child.dep_ == "prep")), None)
+
+    if prep:
+        pobj = next((child for child in prep.children if (child.dep_ == "pobj")), None)
+
+        if pobj:
+            conditional_conj = prep.lemma_ + " " + pobj.lemma_
+
+            if conditional_conj.lower() in ["for the case", "in case", "in the case"]:
+                return conditional_conj
+
+    return False
+
+
+def detect_flowchange(verb):
+    advmod = next((child for child in verb.children if (child.dep_ == "advmod" and child.text.lower() in ["alternatively", "else", "otherwise"])), None)
+
+    if advmod:
+        return True
+
+    return False
+
+
+def is_semimodal(verb):
+    has_xcomp = next((child for child in verb.children if (child.dep_ == "xcomp")), None)
+
+    if has_xcomp:
+        return True
+    else:
+        return False
+
+
+def get_parent_verb(verb):
+    return next((ancestor for ancestor in verb.ancestors if (verb in ancestor.children and verb.dep_ == "xcomp")), None)
+
+
+def is_passive(verb):
+    has_auxpass = next((child for child in verb.children if (child.dep_ == "auxpass")), None)
+    has_nsubjpass = next((child for child in verb.children if (child.dep_ == "nsubjpass")), None)
+
+    if has_auxpass and has_nsubjpass:
+        return True
+    else:
+        return False
+
+
+def get_the_object(verb):
+    passive = is_passive(verb)
+    parent_verb = get_parent_verb(verb)
+
+    if parent_verb:
+        passive = is_passive(parent_verb)
+
+        if passive:
+            the_object = next((child for child in parent_verb.children if (child.dep_ == "nsubjpass")), None)
+        else:
+            the_object = next((child for child in verb.children if (child.dep_ == "dobj")), None)
+
+            if not the_object:
+                the_object = next((child for child in parent_verb.children if (child.dep_ == "nsubj")), None)
+    elif not passive:
+        the_object = next((child for child in verb.children if (child.dep_ == "dobj")), None)
+    else:
+        the_object = next((child for child in verb.children if (child.dep_ == "nsubjpass")), None)
+
+    return the_object
+
+
+def get_phrasal_verb(verb):
+    return next((child for child in verb.children if (child.dep_ == "prt")), None)
+
+
+def get_actor(verb):
+    passive = is_passive(verb)
+    parent_verb = get_parent_verb(verb)
+
+    if parent_verb:
+        agent = next((child for child in verb.children if (child.dep_ == "agent")), None)
+        has_auxpass = next((child for child in verb.children if (child.dep_ == "auxpass")), None)
+
+        if agent:
+            actor = next((child for child in agent.children if (child.dep_ == "pobj")), None)
+        elif not has_auxpass:
+            actor = next((child for child in parent_verb.children if (child.dep_ == "nsubj")), None)
+        else:
+            actor = None
+    elif not passive:
+        actor = next((child for child in verb.children if (child.dep_ == "nsubj")), None)
+    else:
+        agent = next((child for child in verb.children if (child.dep_ == "agent")), None)
+
+        if agent:
+            actor = next((child for child in agent.children if (child.dep_ == "pobj")), None)
+        else:
+            actor = None
+
+    return actor
+
+
+def parse_elements(elements):
+    result = []
+
+    current_actor = "Default"
+    predecessor = None
+    last_gateway = None
+    last_element = None
+    predecessors = []
+
+    for element in elements:
+        if element["type"] == "verb":
+            the_object = element['object']
+            verb = element['verb']
+            phrasal_verb = get_phrasal_verb(verb)  # hand in, set up, ...
+
+            the_object = " ".join([word for word in the_object.lemma_.split() if word.lower() not in STOP_WORDS])
+
+            actor = get_actor(verb)
+
+            if actor:
+                current_actor = " ".join([word for word in actor.lemma_.split() if word.lower() not in STOP_WORDS]).title()
+
+                if current_actor == "":
+                    current_actor = "Default"
+
+            if element == elements[0]:
+                if not phrasal_verb:
+                    value = (the_object + " " + verb._.inflect("VBN")).title()
+                    element_id = "".join(value.split())
+                    result.append({"type": "bpmn:StartEvent", "value": value, "id": element_id, "actor": current_actor, "predecessor": predecessor})
+                    predecessor = element_id
+                else:
+                    value = (the_object + " " + verb._.inflect("VBN") + " " + phrasal_verb.lemma_).title()
+                    element_id = "".join(value.split())
+                    result.append({"type": "bpmn:StartEvent", "value": value, "id": element_id, "actor": current_actor, "predecessor": predecessor})
+                    predecessor = element_id
+            else:
+                if not phrasal_verb:
+                    value = (verb.lemma_ + " " + the_object).title()
+                    element_id = "".join(value.split())
+                    result.append({"type": "bpmn:Task", "value": value, "id": element_id, "actor": current_actor, "predecessor": predecessor})
+                    predecessor = element_id
+                else:
+                    value = (verb.lemma_ + " " + phrasal_verb.lemma_ + " " + the_object).title()
+                    element_id = "".join(value.split())
+                    result.append({"type": "bpmn:Task", "value": value, "id": element_id, "actor": current_actor, "predecessor": predecessor})
+                    predecessor = element_id
+
+            last_element = element_id
+        elif element["type"] == "condition":
+            value = " ".join([word for word in element["condition"].split() if word.lower() not in ["a", "an", "the"]]).title()
+            element_id = "".join(value.split())
+            result.append({"type": "bpmn:ExclusiveGateway", "value": value, "id": element_id, "actor": current_actor, "predecessor": predecessor})
+            predecessor = last_gateway = element_id
+        elif element["type"] == "change_flow":
+            predecessor = last_gateway
+            predecessors.append(last_element)
+        elif element["type"] == "join_flow":
+            element_id = last_gateway + "_join"
+            predecessors.append(predecessor)
+            result.append({"type": "bpmn:ExclusiveGateway", "value": "", "id": element_id, "actor": current_actor, "predecessors": predecessors})
+            predecessor = element_id
+            predecessors = []
+            last_gateway = None
+
+    tasks = list(element for element in elements if element["type"] == "verb")
+
+    if tasks:
+        last_task = tasks[-1]
+
+        the_object = last_task["object"]
+        verb = last_task["verb"]
+        phrasal_verb = get_phrasal_verb(verb)
+        the_object = " ".join([word for word in the_object.lemma_.split() if word.lower() not in STOP_WORDS])
+
+        actor = get_actor(verb)
+
+        if actor:
+            current_actor = " ".join([word for word in actor.lemma_.split() if word.lower() not in STOP_WORDS]).title()
+
+            if current_actor == "":
+                current_actor = "Default"
+
+        if not phrasal_verb:
+            value = (the_object + " " + verb._.inflect("VBN")).title()
+            element_id = "".join(value.split())
+        else:
+            value = (the_object + " " + verb._.inflect("VBN") + " " + phrasal_verb.lemma_).title()
+            element_id = "".join(value.split())
+
+        result.append({"type": "bpmn:EndEvent", "value": value, "id": element_id, "actor": current_actor, "predecessor": predecessor})
 
     return result
