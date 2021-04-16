@@ -6,7 +6,7 @@ from pathlib import Path
 
 
 def parse(text):
-    nlp = spacy.load("en_core_web_trf")
+    nlp = spacy.load("en_core_web_sm")
     nlp.add_pipe("merge_noun_chunks")
 
     doc = nlp(text)
@@ -208,25 +208,25 @@ def parse_elements(elements):
 
             if element == elements[0]:
                 if not phrasal_verb:
-                    result.append({"type": "start_event", "value": the_object + " " + verb._.inflect("VBN"), "actor": current_actor})
+                    result.append({"type": "bpmn:StartEvent", "value": the_object + " " + verb._.inflect("VBN"), "actor": current_actor})
                 else:
-                    result.append({"type": "start_event", "value": the_object + " " + verb._.inflect("VBN") + " " + phrasal_verb.lemma_, "actor": current_actor})
+                    result.append({"type": "bpmn:StartEvent", "value": the_object + " " + verb._.inflect("VBN") + " " + phrasal_verb.lemma_, "actor": current_actor})
             else:
                 if not phrasal_verb:
-                    result.append({"type": "activity", "value": verb.lemma_ + " " + the_object, "actor": current_actor})
+                    result.append({"type": "bpmn:Task", "value": verb.lemma_ + " " + the_object, "actor": current_actor})
                 else:
-                    result.append({"type": "activity", "value": verb.lemma_ + " " + phrasal_verb.lemma_ + " " + the_object, "actor": current_actor})
+                    result.append({"type": "bpmn:Task", "value": verb.lemma_ + " " + phrasal_verb.lemma_ + " " + the_object, "actor": current_actor})
 
             if element == elements[-1]:
                 if not phrasal_verb:
-                    result.append({"type": "end_event", "value": the_object + " " + verb._.inflect("VBN"), "actor": current_actor})
+                    result.append({"type": "bpmn:EndEvent", "value": the_object + " " + verb._.inflect("VBN"), "actor": current_actor})
                 else:
-                    result.append({"type": "end_event", "value": the_object + " " + verb._.inflect("VBN") + " " + phrasal_verb.lemma_, "actor": current_actor})
+                    result.append({"type": "bpmn:EndEvent", "value": the_object + " " + verb._.inflect("VBN") + " " + phrasal_verb.lemma_, "actor": current_actor})
         elif element["type"] == "condition":
             condition = element["condition"]
 
             condition = " ".join([word for word in condition.split() if word.lower() not in ["a", "an", "the"]])
-            result.append({"type": "xor_start", "value": condition, "actor": current_actor})
+            result.append({"type": "bpmn:ExclusiveGateway", "value": condition, "actor": current_actor})
         elif element["type"] == "change_flow":
             result.append({"type": "change_flow", "actor": current_actor})
 

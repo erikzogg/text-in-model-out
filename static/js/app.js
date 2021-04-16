@@ -75,7 +75,7 @@ let checkProcessDescription = function (text) {
     }
 };
 
-let handleResponse = function (data) {
+let handleResponse = async function (data) {
     let elements = JSON.parse(data);
 
     let actors = [];
@@ -86,52 +86,46 @@ let handleResponse = function (data) {
         }
     });
 
-    try {
-        modeler.importXML(defaultXml, function () {
-            var canvas = modeler.get('canvas');
-            var elementFactory = modeler.get('elementFactory');
-            var modeling = modeler.get('modeling');
+    await modeler.createDiagram();
 
-            const participant = elementFactory.createParticipantShape();
-            participant.businessObject.name = 'Organisation';
+    var canvas = modeler.get('canvas');
+    var elementFactory = modeler.get('elementFactory');
+    var elementRegistry = modeler.get('elementRegistry');
+    var modeling = modeler.get('modeling');
 
-            modeling.createShape(
-                participant,
-                {x: 400, y: 200},
-                canvas.getRootElement()
-            );
+    cli.removeShape(modeler.get('elementRegistry').get('StartEvent_1'));
 
-            modeling.splitLane(participant, Object.keys(actors).length);
+    const participant = elementFactory.createParticipantShape();
+    cli.setLabel(participant, 'Organisation');
 
-            const lanes = participant.children;
+    modeling.createShape(participant, {x: 0, y: 0}, elementRegistry.get('Process_1'));
+    modeling.splitLane(participant, Object.keys(actors).length);
 
-            let laneReferences = [];
+    const lanes = participant.children;
 
-            actors.forEach(function (actor, i) {
-                laneReferences[actor] = lanes[i];
-                modeling.updateProperties(lanes[i], {name: actor});
-            });
+    let laneReferences = [];
 
-            console.log(laneReferences);
+    actors.forEach(function (actor, i) {
+        laneReferences[actor] = lanes[i];
+        modeling.updateProperties(lanes[i], {name: actor, id: actor.replace(/\s/g, '')});
+    });
 
-            elements.forEach(function (element, index) {
-                switch (element.type) {
-                    case 'activity':
-                        let task = cli.create('bpmn:Task', {x: laneReferences[element.actor].x + 20, y: laneReferences[element.actor].y + 20}, laneReferences[element.actor]);
-                        cli.setLabel(task, element.value);
-                        break;
-                    case 'start_event':
-                        let startEvent = cli.create('bpmn:StartEvent', {x: laneReferences[element.actor].x + 20, y: laneReferences[element.actor].y + 20}, laneReferences[element.actor]);
-                        cli.setLabel(startEvent, element.value);
-                        break;
-                    default:
-                        break;
-                }
-            });
+    elements.forEach(function (element, index) {
+        switch (element.type) {
+            case 'bpmn:Task':
+                break;
+            case 'bpmn:StartEvent':
+                let startEvent = cli.append(elementRegistry.get(element.actor.replace(/\s/g, '')), 'bpmn:StartEvent');
+                cli.setLabel(startEvent, element.value);
+                break;
+            default:
+                break;
+        }
+    });
 
-            modeler.get('canvas').zoom('fit-viewport');
-        });
-    } catch (err) {
-        console.log(err);
-    }
+    modeler.get('canvas').zoom('fit-viewport');
+
+    const result = await modeler.saveXML();
+    const {xml} = result;
+    console.log(xml);
 };
