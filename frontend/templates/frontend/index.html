@@ -20,7 +20,7 @@
         </header>
 
         <main class="container-fluid p-5">
-            <div class="row h-100">
+            <form class="row h-100" autocomplete="off">
                 <div class="col-xl h-100 d-flex flex-column">
                     <div class="text-center">
                         <h1>Input: Process Description</h1>
@@ -47,13 +47,14 @@
                     </div>
                     <div class="mb-3 border rounded flex-fill" id="process-model"></div>
                     <div class="mb-3 text-center">
-                        <button type="button" class="btn btn-outline-primary" disabled="disabled">Export as SVG</button>
+                        <button type="button" class="btn btn-outline-primary" id="export-bpmn" disabled="disabled">Export as BPMN file</button>
+                        <button type="button" class="btn btn-outline-primary" id="export-svg" disabled="disabled">Export as SVG file</button>
                     </div>
                     <div class="text-center">
-                        <button type="button" class="btn btn-outline-secondary" disabled="disabled">Clear Process Model</button>
+                        <button type="button" class="btn btn-outline-secondary" id="clear-process-model" disabled="disabled">Clear Process Model</button>
                     </div>
                 </div>
-            </div>
+            </form>
         </main>
 
         <footer>

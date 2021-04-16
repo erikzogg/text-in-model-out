@@ -36,13 +36,41 @@ let initApp = function () {
 
                 return response.text();
             })
-            .then(html => handleResponse(html))
-            .catch(error => {
-                this.innerHTML = 'Create Process Model';
-                this.removeAttribute('disabled');
+            .then(html => {
+                handleResponse(html);
 
-                document.getElementById('process-model').innerHTML = error;
+                document.getElementById('export-bpmn').removeAttribute('disabled');
+                document.getElementById('export-svg').removeAttribute('disabled');
+                document.getElementById('clear-process-model').removeAttribute('disabled');
+            })
+            .catch(error => {
+                console.log(error);
             });
+    });
+
+    let clearProcessModel = document.getElementById('clear-process-model');
+    clearProcessModel.addEventListener('click', function () {
+        modeler.clear();
+
+        document.getElementById('export-bpmn').setAttribute('disabled', 'disabled');
+        document.getElementById('export-svg').setAttribute('disabled', 'disabled');
+        document.getElementById('clear-process-model').setAttribute('disabled', 'disabled');
+    });
+
+    let exportBpmnButton = document.getElementById('export-bpmn');
+    exportBpmnButton.addEventListener('click', async function () {
+        const result = await modeler.saveXML();
+        const {xml} = result;
+
+        downloadFile('Business_Process.bpmn', xml);
+    });
+
+    let exportSvgButton = document.getElementById('export-svg');
+    exportSvgButton.addEventListener('click', async function () {
+        const result = await modeler.saveSVG();
+        const {svg} = result;
+
+        downloadFile('Business_Process.svg', svg);
     });
 
     document.querySelectorAll('.btn-example').forEach(item => {
@@ -57,6 +85,19 @@ let initApp = function () {
                 });
         });
     });
+};
+
+let downloadFile = function (filename, text) {
+    let element = document.createElement('a');
+    element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(text));
+    element.setAttribute('download', filename);
+
+    element.style.display = 'none';
+    document.body.appendChild(element);
+
+    element.click();
+
+    document.body.removeChild(element);
 };
 
 let checkProcessDescription = function (text) {
@@ -121,8 +162,15 @@ let handleResponse = async function (data) {
         }
     });
 
-    modeler.get('canvas').zoom('fit-viewport');
+    cli.elements().forEach(function (element) {
+        if (cli.element(element).type === 'bpmn:ExclusiveGateway') {
+            cli.element(element).outgoing.forEach(function (outgoing, index) {
+                if (index > 0) {
+                    cli.move(outgoing.target.id, {x: -150, y: index * 150});
+                }
+            });
+        }
+    });
 
-    const result = await modeler.saveXML();
-    const {xml} = result;
+    modeler.get('canvas').zoom('fit-viewport');
 };
