@@ -107,16 +107,26 @@ let handleResponse = async function (data) {
 
     actors.forEach(function (actor, i) {
         laneReferences[actor] = lanes[i];
-        modeling.updateProperties(lanes[i], {name: actor, id: actor.replace(/\s/g, '')});
+        modeling.updateProperties(lanes[i], {id: actor.replace(/\s/g, ''), name: actor});
     });
 
     elements.forEach(function (element, index) {
         switch (element.type) {
-            case 'bpmn:Task':
+            case 'bpmn:EndEvent':
+                let endEvent = cli.append(elementRegistry.get(element.predecessor), 'bpmn:EndEvent');
+                modeling.updateProperties(elementRegistry.get(endEvent), {id: element.id, name: element.value});
+                break;
+            case 'bpmn:ExclusiveGateway':
+                let xorGateway = cli.append(elementRegistry.get(element.predecessor), 'bpmn:ExclusiveGateway');
+                modeling.updateProperties(elementRegistry.get(xorGateway), {id: element.id, name: element.value});
                 break;
             case 'bpmn:StartEvent':
                 let startEvent = cli.append(elementRegistry.get(element.actor.replace(/\s/g, '')), 'bpmn:StartEvent');
-                cli.setLabel(startEvent, element.value);
+                modeling.updateProperties(elementRegistry.get(startEvent), {id: element.id, name: element.value});
+                break;
+            case 'bpmn:Task':
+                let task = cli.append(elementRegistry.get(element.predecessor), 'bpmn:Task');
+                modeling.updateProperties(elementRegistry.get(task), {id: element.id, name: element.value});
                 break;
             default:
                 break;

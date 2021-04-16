@@ -192,6 +192,8 @@ def parse_elements(elements):
     result = []
 
     current_actor = "Default"
+    predecessor = None
+    last_gateway = None
 
     for element in elements:
         if element["type"] == "verb":
@@ -208,26 +210,44 @@ def parse_elements(elements):
 
             if element == elements[0]:
                 if not phrasal_verb:
-                    result.append({"type": "bpmn:StartEvent", "value": the_object + " " + verb._.inflect("VBN"), "actor": current_actor})
+                    value = (the_object + " " + verb._.inflect("VBN")).title()
+                    element_id = "".join(value.split())
+                    result.append({"type": "bpmn:StartEvent", "value": value, "id": element_id, "actor": current_actor, "predecessor": predecessor})
+                    predecessor = element_id
                 else:
-                    result.append({"type": "bpmn:StartEvent", "value": the_object + " " + verb._.inflect("VBN") + " " + phrasal_verb.lemma_, "actor": current_actor})
+                    value = (the_object + " " + verb._.inflect("VBN") + " " + phrasal_verb.lemma_).title()
+                    element_id = "".join(value.split())
+                    result.append({"type": "bpmn:StartEvent", "value": value, "id": element_id, "actor": current_actor, "predecessor": predecessor})
+                    predecessor = element_id
             else:
                 if not phrasal_verb:
-                    result.append({"type": "bpmn:Task", "value": verb.lemma_ + " " + the_object, "actor": current_actor})
+                    value = (verb.lemma_ + " " + the_object).title()
+                    element_id = "".join(value.split())
+                    result.append({"type": "bpmn:Task", "value": value, "id": element_id, "actor": current_actor, "predecessor": predecessor})
+                    predecessor = element_id
                 else:
-                    result.append({"type": "bpmn:Task", "value": verb.lemma_ + " " + phrasal_verb.lemma_ + " " + the_object, "actor": current_actor})
+                    value = (verb.lemma_ + " " + phrasal_verb.lemma_ + " " + the_object).title()
+                    element_id = "".join(value.split())
+                    result.append({"type": "bpmn:Task", "value": value, "id": element_id, "actor": current_actor, "predecessor": predecessor})
+                    predecessor = element_id
 
             if element == elements[-1]:
                 if not phrasal_verb:
-                    result.append({"type": "bpmn:EndEvent", "value": the_object + " " + verb._.inflect("VBN"), "actor": current_actor})
+                    value = (the_object + " " + verb._.inflect("VBN")).title()
+                    element_id = "".join(value.split())
+                    result.append({"type": "bpmn:EndEvent", "value": value, "id": element_id, "actor": current_actor, "predecessor": predecessor})
+                    predecessor = element_id
                 else:
-                    result.append({"type": "bpmn:EndEvent", "value": the_object + " " + verb._.inflect("VBN") + " " + phrasal_verb.lemma_, "actor": current_actor})
+                    value = (the_object + " " + verb._.inflect("VBN") + " " + phrasal_verb.lemma_).title()
+                    element_id = "".join(value.split())
+                    result.append({"type": "bpmn:EndEvent", "value": value, "id": element_id, "actor": current_actor, "predecessor": predecessor})
+                    predecessor = element_id
         elif element["type"] == "condition":
-            condition = element["condition"]
-
-            condition = " ".join([word for word in condition.split() if word.lower() not in ["a", "an", "the"]])
-            result.append({"type": "bpmn:ExclusiveGateway", "value": condition, "actor": current_actor})
+            value = " ".join([word for word in element["condition"].split() if word.lower() not in ["a", "an", "the"]]).title()
+            element_id = "".join(value.split())
+            result.append({"type": "bpmn:ExclusiveGateway", "value": value, "id": element_id, "actor": current_actor, "predecessor": predecessor})
+            predecessor = last_gateway = element_id
         elif element["type"] == "change_flow":
-            result.append({"type": "change_flow", "actor": current_actor})
+            predecessor = last_gateway
 
     return result
