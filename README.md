@@ -18,6 +18,7 @@
 ```
 docker-compose build
 docker-compose up -d
+docker-compose run django npm install
 ```
 
 ### Without Docker
@@ -26,4 +27,5 @@ docker-compose up -d
 pip install --no-cache-dir -r requirements.txt
 python -m spacy download en_core_web_trf
 python manage.py runserver
+npm install
 ```

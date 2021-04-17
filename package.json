@@ -4,7 +4,7 @@
     "description": "Source Code of My Bachelor Thesis",
     "main": "main.js",
     "scripts": {
-        "bpmn": "browserify -p esmify main.js -o static/js/bpmn.js"
+        "postinstall": "browserify -p esmify main.js -o static/js/bpmn.js"
     },
     "repository": {
         "type": "git",

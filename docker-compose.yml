@@ -5,7 +5,7 @@ services:
         build:
             context: .
         image: bachelor-thesis/django
-        container_name: django
+        container_name: bachelor-thesis-django
         hostname: django
         volumes:
             - .:/usr/src/app
@@ -17,7 +17,7 @@ services:
         build:
             context: .docker/nginx
         image: bachelor-thesis/nginx
-        container_name: nginx
+        container_name: bachelor-thesis-nginx
         hostname: nginx
         volumes:
             - ./static:/static

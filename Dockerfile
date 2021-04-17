@@ -1,5 +1,9 @@
 FROM python:3
 
+RUN curl -fsSL https://deb.nodesource.com/setup_15.x | bash \
+    && apt-get install -y --no-install-recommends nodejs \
+    && node -v && npm -v
+
 WORKDIR /usr/src/app
 
 COPY requirements.txt ./
