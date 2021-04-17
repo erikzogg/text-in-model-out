@@ -17,7 +17,6 @@ def parse(text):
     output_path.open("w", encoding="utf-8").write(svg)
 
     elements = []
-    flow_join = False
     last_verb = None
 
     for sent in doc.sents:
@@ -32,7 +31,6 @@ def parse(text):
 
             if detect_flowchange(verb):
                 elements.append({"type": "change_flow", "last_verb": last_verb})
-                # flow_join = True
 
             if detect_join(verb):
                 elements.append({"type": "join_flow"})
@@ -48,10 +46,6 @@ def parse(text):
 
             elements.append({"type": "verb", "object": the_object, "verb": verb})
             last_verb = verb
-
-        # if flow_join:
-        #    elements.append({"type": "join_flow"})
-        #    flow_join = False
 
     return parse_elements(elements)
 
@@ -283,6 +277,9 @@ def parse_elements(elements):
                 last_gateway = list(split_gateways)[-1]
             else:
                 last_gateway = None
+
+    for key, value in split_gateways.items():
+        result.append({"type": "bpmn:EndEvent", "value": "", "id": value[-1] + "_end", "actor": current_actor, "predecessor": value[-1]})
 
     tasks = list(element for element in elements if element["type"] == "verb")
 

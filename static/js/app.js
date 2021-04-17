@@ -44,6 +44,9 @@ let initApp = function () {
                 document.getElementById('clear-process-model').removeAttribute('disabled');
             })
             .catch(error => {
+                this.innerHTML = 'Create Process Model';
+                this.removeAttribute('disabled');
+
                 console.log(error);
             });
     });
@@ -176,6 +179,10 @@ let handleResponse = async function (data) {
                     cli.move(outgoing.target.id, {x: -150, y: index * 150});
                 }
             });
+        }
+
+        if (cli.element(element).type === 'bpmn:Lane') {
+            modeling.resizeLane(cli.element(element), {x: cli.element(element).x, y: cli.element(element).y, height: 200, width: cli.element(element).width});
         }
     });
 
