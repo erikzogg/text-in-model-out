@@ -32,7 +32,11 @@ def parse(text):
 
             if detect_flowchange(verb):
                 elements.append({"type": "change_flow", "last_verb": last_verb})
-                flow_join = True
+                # flow_join = True
+
+            if detect_join(verb):
+                elements.append({"type": "join_flow"})
+                continue
 
             if is_semimodal(verb):
                 continue
@@ -45,11 +49,20 @@ def parse(text):
             elements.append({"type": "verb", "object": the_object, "verb": verb})
             last_verb = verb
 
-        if flow_join:
-            elements.append({"type": "join_flow"})
-            flow_join = False
+        # if flow_join:
+        #    elements.append({"type": "join_flow"})
+        #    flow_join = False
 
     return parse_elements(elements)
+
+
+def detect_join(verb):
+    nsubjpass = next((child for child in verb.children if (child.dep_ == "nsubjpass" and child.text.lower() in ["the sequence flow", "the flow"])), None)
+
+    if verb.lemma_ == "merge" and nsubjpass:
+        return True
+
+    return False
 
 
 def detect_condition(verb):
@@ -204,6 +217,7 @@ def parse_elements(elements):
     last_gateway = None
     last_element = None
     predecessors = []
+    split_gateways = {}
 
     for element in elements:
         if element["type"] == "verb":
@@ -250,16 +264,25 @@ def parse_elements(elements):
             element_id = "".join(value.split())
             result.append({"type": "bpmn:ExclusiveGateway", "value": value, "id": element_id, "actor": current_actor, "predecessor": predecessor})
             predecessor = last_gateway = element_id
+            predecessors = []
+            split_gateways[element_id] = []
         elif element["type"] == "change_flow":
             predecessor = last_gateway
             predecessors.append(last_element)
+            split_gateways[last_gateway].append(last_element)
         elif element["type"] == "join_flow":
             element_id = last_gateway + "_join"
+            split_gateways[last_gateway].append(predecessor)
             predecessors.append(predecessor)
-            result.append({"type": "bpmn:ExclusiveGateway", "value": "", "id": element_id, "actor": current_actor, "predecessors": predecessors})
+            result.append({"type": "bpmn:ExclusiveGateway", "value": "", "id": element_id, "actor": current_actor, "predecessors": split_gateways[last_gateway]})
             predecessor = element_id
             predecessors = []
-            last_gateway = None
+
+            split_gateways.pop(last_gateway, None)
+            if len(split_gateways) > 0:
+                last_gateway = list(split_gateways)[-1]
+            else:
+                last_gateway = None
 
     tasks = list(element for element in elements if element["type"] == "verb")
 
