@@ -51,8 +51,6 @@ def parse(text):
             elements.append({"type": "verb", "object": the_object, "verb": verb})
             last_verb = verb
 
-    print(elements)
-
     return parse_elements(elements)
 
 
