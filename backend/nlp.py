@@ -29,6 +29,10 @@ def parse(text):
                 elements.append({"type": "condition", "condition": condition})
                 continue
 
+            if detect_parallel(verb):
+                elements.insert(len(elements) - 1, {"type": "parallel"})
+                elements.append({"type": "change_flow", "last_verb": last_verb})
+
             if detect_flowchange(verb):
                 elements.append({"type": "change_flow", "last_verb": last_verb})
 
@@ -46,6 +50,8 @@ def parse(text):
 
             elements.append({"type": "verb", "object": the_object, "verb": verb})
             last_verb = verb
+
+    print(elements)
 
     return parse_elements(elements)
 
@@ -114,6 +120,15 @@ def detect_condition(verb):
 
             if conditional_conj.lower() in ["for the case", "in case", "in the case"]:
                 return conditional_conj
+
+    return False
+
+
+def detect_parallel(verb):
+    mark = next((child for child in verb.children if (child.dep_ == "mark" and child.text.lower() in ["while"])), None)
+
+    if mark:
+        return True
 
     return False
 
@@ -268,7 +283,10 @@ def parse_elements(elements):
             element_id = last_gateway + "_join"
             split_gateways[last_gateway].append(predecessor)
             predecessors.append(predecessor)
-            result.append({"type": "bpmn:ExclusiveGateway", "value": "", "id": element_id, "actor": current_actor, "predecessors": split_gateways[last_gateway]})
+            if "ParallelGateway" in last_gateway:
+                result.append({"type": "bpmn:ParallelGateway", "value": "", "id": element_id, "actor": current_actor, "predecessors": split_gateways[last_gateway]})
+            else:
+                result.append({"type": "bpmn:ExclusiveGateway", "value": "", "id": element_id, "actor": current_actor, "predecessors": split_gateways[last_gateway]})
             predecessor = element_id
             predecessors = []
 
@@ -277,6 +295,12 @@ def parse_elements(elements):
                 last_gateway = list(split_gateways)[-1]
             else:
                 last_gateway = None
+        elif element["type"] == "parallel":
+            element_id = predecessor + "_ParallelGateway"
+            result.append({"type": "bpmn:ParallelGateway", "value": "", "id": element_id, "actor": current_actor, "predecessor": predecessor})
+            predecessor = last_gateway = element_id
+            predecessors = []
+            split_gateways[element_id] = []
 
     for key, value in split_gateways.items():
         result.append({"type": "bpmn:EndEvent", "value": "", "id": value[-1] + "_end", "actor": current_actor, "predecessor": value[-1]})

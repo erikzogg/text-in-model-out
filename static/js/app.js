@@ -83,7 +83,7 @@ let initApp = function () {
             fetch('/static/examples/process_' + exampleNumber + '.txt')
                 .then(response => response.text())
                 .then(data => {
-                    document.getElementById('process-description').value = data;
+                    document.getElementById('process-description').value = data.trim();
                     checkProcessDescription(data);
                 });
         });
@@ -173,7 +173,7 @@ let handleResponse = async function (data) {
     });
 
     cli.elements().forEach(function (element) {
-        if (cli.element(element).type === 'bpmn:ExclusiveGateway') {
+        if (cli.element(element).type === 'bpmn:ExclusiveGateway' || cli.element(element).type === 'bpmn:ParallelGateway') {
             cli.element(element).outgoing.forEach(function (outgoing, index) {
                 if (index > 0) {
                     cli.move(outgoing.target.id, {x: -150, y: index * 150});
