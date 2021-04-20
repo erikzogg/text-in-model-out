@@ -179,6 +179,13 @@ let handleResponse = async function (data) {
                     cli.move(outgoing.target.id, {x: -150, y: index * 150});
                 }
             });
+
+            if (cli.element(element).type === 'bpmn:ExclusiveGateway') {
+                if (cli.element(element).outgoing.length === 2) {
+                    modeling.updateProperties(cli.element(element).outgoing[0], {name: 'Yes'});
+                    modeling.updateProperties(cli.element(element).outgoing[1], {name: 'No'});
+                }
+            }
         }
 
         if (cli.element(element).type === 'bpmn:Lane') {

@@ -26,7 +26,9 @@ def parse(text):
             condition = detect_condition(verb)
 
             if condition:
-                elements.append({"type": "condition", "condition": condition})
+                if condition != "semimodal":
+                    elements.append({"type": "condition", "condition": condition})
+
                 continue
 
             if detect_parallel(verb):
@@ -67,7 +69,13 @@ def detect_condition(verb):
     passive = is_passive(verb)
     parent_verb = get_parent_verb(verb)  # ToDo
 
-    mark = next((child for child in verb.children if (child.dep_ == "mark" and child.text.lower() in ["if"])), None)
+    if parent_verb:
+        mark = next((child for child in parent_verb.children if (child.dep_ == "mark" and child.text.lower() in ["if"])), None)
+
+        if mark:
+            return "semimodal"
+    else:
+        mark = next((child for child in verb.children if (child.dep_ == "mark" and child.text.lower() in ["if"])), None)
 
     if mark:
         if passive:
@@ -117,7 +125,22 @@ def detect_condition(verb):
             conditional_conj = prep.lemma_ + " " + pobj.lemma_
 
             if conditional_conj.lower() in ["for the case", "in case", "in the case"]:
-                return conditional_conj
+                print()
+
+                neighbor = pobj.nbor()
+                condition_text = [neighbor.text]
+
+                while neighbor.text:
+                    neighbor = neighbor.nbor()
+
+                    if neighbor.text == ",":
+                        break
+
+                    condition_text.append(neighbor.text)
+
+                condition_text = " ".join([word for word in condition_text if word.lower() not in ["a", "an", "of", "that", "the"]]).title() + "?"
+
+                return condition_text
 
     return False
 
