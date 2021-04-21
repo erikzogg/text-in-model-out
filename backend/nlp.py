@@ -17,7 +17,6 @@ def parse(text):
     output_path.open("w", encoding="utf-8").write(svg)
 
     elements = []
-    last_verb = None
 
     for sent in doc.sents:
         verbs = [token for token in sent if token.pos_ == "VERB"]
@@ -33,10 +32,10 @@ def parse(text):
 
             if detect_parallel(verb):
                 elements.insert(len(elements) - 1, {"type": "parallel"})
-                elements.append({"type": "change_flow", "last_verb": last_verb})
+                elements.append({"type": "change_flow"})
 
             if detect_flowchange(verb):
-                elements.append({"type": "change_flow", "last_verb": last_verb})
+                elements.append({"type": "change_flow"})
 
             if detect_join(verb):
                 elements.append({"type": "join_flow"})
@@ -50,8 +49,12 @@ def parse(text):
             if not the_object:
                 continue
 
-            elements.append({"type": "verb", "object": the_object, "verb": verb})
-            last_verb = verb
+            advmod = next((child for child in verb.children if (child.dep_ == "advmod" and child.text.lower() in ["once", "after"])), None)
+
+            if advmod:
+                elements.append({"type": "verb", "object": the_object, "verb": verb, "event": True})
+            else:
+                elements.append({"type": "verb", "object": the_object, "verb": verb, "event": False})
 
     return parse_elements(elements)
 
@@ -265,16 +268,21 @@ def parse_elements(elements):
                 if current_actor == "":
                     current_actor = "Default"
 
-            if element == elements[0]:
+            if element == elements[0] or element["event"] is True:
+                if element == elements[0]:
+                    type = "bpmn:StartEvent"
+                else:
+                    type = "bpmn:IntermediateThrowEvent"
+
                 if not phrasal_verb:
                     value = (the_object + " " + verb._.inflect("VBN")).title()
                     element_id = "".join(value.split())
-                    result.append({"type": "bpmn:StartEvent", "value": value, "id": element_id, "actor": current_actor, "predecessor": predecessor})
+                    result.append({"type": type, "value": value, "id": element_id, "actor": current_actor, "predecessor": predecessor})
                     predecessor = element_id
                 else:
                     value = (the_object + " " + verb._.inflect("VBN") + " " + phrasal_verb.lemma_).title()
                     element_id = "".join(value.split())
-                    result.append({"type": "bpmn:StartEvent", "value": value, "id": element_id, "actor": current_actor, "predecessor": predecessor})
+                    result.append({"type": type, "value": value, "id": element_id, "actor": current_actor, "predecessor": predecessor})
                     predecessor = element_id
             else:
                 if not phrasal_verb:
