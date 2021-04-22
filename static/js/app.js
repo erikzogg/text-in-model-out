@@ -177,6 +177,30 @@ let handleResponse = async function (data) {
             cli.element(element).outgoing.forEach(function (outgoing, index) {
                 if (index > 0) {
                     cli.move(outgoing.target.id, {x: -150, y: index * 150});
+
+                    let predecessors = [];
+
+                    cli.element(outgoing.target.id).outgoing.forEach(function (entry) {
+                        predecessors.push(entry);
+                    });
+
+                    while (predecessors.length > 0) {
+                        let predecessor = predecessors[0];
+
+                        if (predecessor.type !== 'bpmn:SequenceFlow') {
+                            cli.move(predecessor.id, {x: -150, y: 0});
+
+                            cli.element(predecessor.id).outgoing.forEach(function (entry) {
+                                predecessors.push(entry);
+                            });
+                        } else {
+                            if (!predecessors.includes(cli.element(predecessor.id).target)) {
+                                predecessors.push(cli.element(predecessor.id).target);
+                            }
+                        }
+
+                        predecessors.splice(0, 1);
+                    }
                 }
             });
 
