@@ -2,13 +2,13 @@
 
 ## Prerequisites
 
-* Docker >= 20.10.5
-* docker-compose >= 1.28.6
+* Docker >= 20.10.6
+* docker-compose >= 1.29.1
 
 ## Supported Browsers
 
-* Google Chrome >= 89
-* Microsoft Edge >= 89
+* Google Chrome >= 90
+* Microsoft Edge >= 90
 * Mozilla Firefox >= 87
 
 ## Setup
