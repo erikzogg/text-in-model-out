@@ -194,6 +194,7 @@ def get_the_object(verb):
     parent_verb = get_parent_verb(verb)
 
     if parent_verb:
+        print(verb.lemma_)
         passive = is_passive(parent_verb)
 
         if passive:
@@ -202,7 +203,10 @@ def get_the_object(verb):
             the_object = next((child for child in verb.children if (child.dep_ == "dobj")), None)
 
             if not the_object:
-                the_object = next((child for child in parent_verb.children if (child.dep_ == "nsubj")), None)
+                has_auxpass = next((child for child in verb.children if (child.dep_ == "auxpass")), None)
+
+                if has_auxpass:
+                    the_object = next((child for child in parent_verb.children if (child.dep_ == "nsubj")), None)
     elif not passive:
         the_object = next((child for child in verb.children if (child.dep_ == "dobj")), None)
     else:
