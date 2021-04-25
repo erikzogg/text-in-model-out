@@ -84,7 +84,7 @@ def detect_condition(verb):
         if passive:
             nsubjpass = next((child for child in verb.children if (child.dep_ == "nsubjpass")), None)
 
-            return nsubjpass.text + "  " + verb.text + "?"
+            return nsubjpass.text + " " + verb.text + "?"
         else:
             nsubj = next((child for child in verb.children if (child.dep_ == "nsubj")), None)
             aux = next((child for child in verb.children if (child.dep_ == "aux")), None)
@@ -128,8 +128,6 @@ def detect_condition(verb):
             conditional_conj = prep.lemma_ + " " + pobj.lemma_
 
             if conditional_conj.lower() in ["for the case", "in case", "in the case"]:
-                print()
-
                 neighbor = pobj.nbor()
                 condition_text = [neighbor.text]
 
@@ -194,7 +192,6 @@ def get_the_object(verb):
     parent_verb = get_parent_verb(verb)
 
     if parent_verb:
-        print(verb.lemma_)
         passive = is_passive(parent_verb)
 
         if passive:
@@ -209,14 +206,62 @@ def get_the_object(verb):
                     the_object = next((child for child in parent_verb.children if (child.dep_ == "nsubj")), None)
     elif not passive:
         the_object = next((child for child in verb.children if (child.dep_ == "dobj")), None)
+
+        if not the_object:
+            prep = next((child for child in verb.rights if (child.dep_ == "prep")), None)
+
+            if prep:
+                neighbor_children = list(prep.rights)
+                condition_text = [prep.text]
+
+                while neighbor_children:
+                    for child in neighbor_children:
+                        if child.is_punct is False:
+                            condition_text.append(child.text)
+                        neighbor_children.remove(child)
+                        if child.rights:
+                            for subchild in child.rights:
+                                neighbor_children.append(subchild)
+
+                the_object = " ".join(condition_text)
+
+                return the_object
+
+            conj = next((child for child in verb.children if (child.dep_ == "conj")), None)
+
+            if conj:
+                return get_the_object(conj)
     else:
         the_object = next((child for child in verb.children if (child.dep_ == "nsubjpass")), None)
 
-    return the_object
+        prep = next((child for child in verb.rights if (child.dep_ == "prep")), None)
+
+        if prep and the_object:
+            neighbor_children = list(prep.rights)
+            condition_text = [prep.text]
+
+            while neighbor_children:
+                for child in neighbor_children:
+                    if child.is_punct is False:
+                        condition_text.append(child.text)
+                    neighbor_children.remove(child)
+                    if child.rights:
+                        for subchild in child.rights:
+                            neighbor_children.append(subchild)
+
+            the_object = the_object.lemma_ + " " + " ".join(condition_text)
+
+            return the_object
+    if the_object:
+        return the_object.lemma_
+    else:
+        return None
 
 
 def get_phrasal_verb(verb):
-    return next((child for child in verb.children if (child.dep_ == "prt")), None)
+    phrasal_verb = next((child for child in verb.children if (child.dep_ == "prt")), None)
+
+    return phrasal_verb
 
 
 def get_actor(verb):
@@ -262,7 +307,7 @@ def parse_elements(elements):
             verb = element['verb']
             phrasal_verb = get_phrasal_verb(verb)  # hand in, set up, ...
 
-            the_object = " ".join([word for word in the_object.lemma_.split() if word.lower() not in STOP_WORDS])
+            the_object = " ".join([word for word in the_object.split() if word.lower() not in ["a", "an", "the"]])
 
             actor = get_actor(verb)
 
@@ -346,7 +391,7 @@ def parse_elements(elements):
         the_object = last_task["object"]
         verb = last_task["verb"]
         phrasal_verb = get_phrasal_verb(verb)
-        the_object = " ".join([word for word in the_object.lemma_.split() if word.lower() not in STOP_WORDS])
+        the_object = " ".join([word for word in the_object.split() if word.lower() not in ["a", "an", "the"]])
 
         actor = get_actor(verb)
 
