@@ -231,6 +231,23 @@ def get_the_object(verb):
 
             if conj:
                 return get_the_object(conj)
+        else:
+            prep = next((child for child in verb.rights if (child.dep_ == "prep")), None)
+
+            if prep:
+                neighbor_children = list(prep.rights)
+                condition_text = [prep.text]
+
+                while neighbor_children:
+                    for child in neighbor_children:
+                        if child.is_punct is False:
+                            condition_text.append(child.text)
+                        neighbor_children.remove(child)
+                        if child.rights:
+                            for subchild in child.rights:
+                                neighbor_children.append(subchild)
+
+                return the_object.lemma_ + " " + " ".join(condition_text)
     else:
         the_object = next((child for child in verb.children if (child.dep_ == "nsubjpass")), None)
 
