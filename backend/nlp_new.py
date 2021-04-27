@@ -7,7 +7,7 @@ exclusive_markers = ["if", "in case", "in the case", "for the case"]
 parallel_markers = ["while", "at the same time"]
 sequence_flow_change_markers = ["otherwise", "in the other case"]
 sequence_flow_join_markers = ["the sequence flow", "the flow", "once one of these activities", "once these activities", "after each of these activities"]
-sequence_flow_join_verbs = ["merge", "perform"]
+sequence_flow_join_verbs = ["merge", "perform", "complete"]
 sequence_flow_join_advmod = ["after", "once"]
 process_termination_markers = ["the business process", "this business process", "the process", "this process"]
 process_termination_verbs = ["end", "finish", "stop", "terminate"]
@@ -98,13 +98,11 @@ def parse_triggers(triggers):
             predecessor = bpmn_element.get('identifier')
             open_gateways[bpmn_element.get('identifier')] = []
         elif trigger.get('category') == "sequence_flow_change":
+            if not open_gateways:
+                continue
+
             last_gateway = list(open_gateways)[-1]
-
-            if "EndEvent" in predecessor:
-                open_gateways.pop(last_gateway)
-            else:
-                open_gateways[last_gateway].append(predecessor)
-
+            open_gateways[last_gateway].append(predecessor)
             predecessor = last_gateway
         elif trigger.get('category') == "sequence_flow_join":
             if not open_gateways:
@@ -139,13 +137,22 @@ def parse_triggers(triggers):
 
                     elements.append(bpmn_element)
                     predecessor = bpmn_element.get('identifier')
-                    open_gateways.pop(last_gateway)
-                else:
-                    print(last_gateway)
+                    bpmn_element = {"category": "bpmn:EndEvent", "identifier": "EndEvent_" + str(trigger["verb"].idx), "value": trigger["verb"].lemma_, "actor": "Default", "predecessor": predecessor}
+                    elements.append(bpmn_element)
 
-            bpmn_element = {"category": "bpmn:EndEvent", "identifier": "EndEvent_" + str(trigger["verb"].idx), "value": trigger["verb"].lemma_, "actor": "Default", "predecessor": predecessor}
-            elements.append(bpmn_element)
-            predecessor = bpmn_element.get('identifier')
+                open_gateways.pop(last_gateway)
+                predecessor = last_gateway
+            else:
+                bpmn_element = {"category": "bpmn:EndEvent", "identifier": "EndEvent_" + str(trigger["verb"].idx), "value": trigger["verb"].lemma_, "actor": "Default", "predecessor": predecessor}
+                elements.append(bpmn_element)
+
+    if open_gateways:
+        for gateway in open_gateways:
+            if gateway == list(open_gateways)[-1]:
+                print("Last Gateway")
+            else:
+                for test in open_gateways[gateway]:
+                    print(next(element for element in elements if element["identifier"] == test))
 
     return elements
 
@@ -228,13 +235,7 @@ def detect_sequence_flow_join(doc, verb):
     if verb.lemma_ in sequence_flow_join_verbs and nsubjpass:
         return verb
 
-    advmod = next((child for child in verb.children if (child.dep_ == "advmod" and child.text.lower() in sequence_flow_join_advmod)), None)
-
-    if advmod:
-        if any(marker for marker in sequence_flow_join_markers if marker in doc[advmod.i:verb.i].text.lower()):
-            return verb
-
-    if doc[verb.sent.start] in verb.children:
+    if verb.lemma_ in sequence_flow_join_verbs and doc[verb.sent.start] in verb.children:
         if any(marker for marker in sequence_flow_join_markers if marker in doc[verb.sent.start:verb.i].text.lower()):
             return verb
 
