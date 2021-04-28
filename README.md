@@ -9,7 +9,7 @@
 
 * Google Chrome >= 90
 * Microsoft Edge >= 90
-* Mozilla Firefox >= 88
+* Mozilla Firefox >= 89
 
 ## Setup
 
