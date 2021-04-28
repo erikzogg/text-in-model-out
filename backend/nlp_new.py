@@ -10,6 +10,8 @@ sequence_flow_join_markers = ["the sequence flow", "the flow", "once one of thes
 sequence_flow_join_verbs = ["merge", "perform", "complete", "execute"]
 process_termination_markers = ["the business process", "this business process", "the process", "this process"]
 process_termination_verbs = ["end", "finish", "stop", "terminate"]
+intermediate_event_markers = ["once", "after"]
+stopwords = ["a", "an", "the"]
 
 
 def parse(text):
@@ -67,6 +69,12 @@ def parse_verbs(doc):
                 triggers.append({"category": "process_termination", "verb": verb})
                 continue
 
+            intermediate_event = detect_intermediate_event(verb)
+
+            if intermediate_event:
+                triggers.append({"category": "intermediate_event", "verb": verb})
+                continue
+
             if has_children_verbs(verb):
                 continue
 
@@ -82,8 +90,23 @@ def parse_triggers(triggers):
     open_gateways = {}
 
     for trigger in triggers:
-        if trigger.get('category') == "activity":
-            bpmn_element = {"category": "bpmn:Task", "identifier": "Task_" + str(trigger["verb"].idx), "value": trigger["verb"].lemma_, "actor": "Default", "predecessor": predecessor}
+        if trigger == triggers[0]:
+            bpmn_element = {
+                "category": "bpmn:StartEvent", "identifier": "StartEvent_" + str(trigger["verb"].idx), "value": get_event_label(trigger["verb"]), "actor": "Default", "predecessor": predecessor
+            }
+            elements.append(bpmn_element)
+            predecessor = bpmn_element.get('identifier')
+        elif trigger.get('category') == "activity":
+            bpmn_element = {
+                "category": "bpmn:Task", "identifier": "Task_" + str(trigger["verb"].idx), "value": get_task_label(trigger["verb"]), "actor": "Default", "predecessor": predecessor
+            }
+            elements.append(bpmn_element)
+            predecessor = bpmn_element.get('identifier')
+        elif trigger.get('category') == "intermediate_event":
+            bpmn_element = {
+                "category": "bpmn:IntermediateThrowEvent", "identifier": "IntermediateThrowEvent_" + str(trigger["verb"].idx),
+                "value": get_event_label(trigger["verb"]), "actor": "Default", "predecessor": predecessor
+            }
             elements.append(bpmn_element)
             predecessor = bpmn_element.get('identifier')
         elif trigger.get('category') == "exclusive_gateway":
@@ -137,13 +160,15 @@ def parse_triggers(triggers):
                     elements.append(bpmn_element)
                     predecessor = bpmn_element.get('identifier')
 
-                bpmn_element = {"category": "bpmn:EndEvent", "identifier": "EndEvent_" + str(trigger["verb"].idx), "value": trigger["verb"].lemma_, "actor": "Default", "predecessor": predecessor}
+                bpmn_element = {"category": "bpmn:EndEvent", "identifier": "EndEvent_" + str(trigger["verb"].idx), "value": get_event_label(trigger["verb"]), "actor": "Default",
+                                "predecessor": predecessor}
                 elements.append(bpmn_element)
 
                 open_gateways.pop(last_gateway)
                 predecessor = last_gateway
             else:
-                bpmn_element = {"category": "bpmn:EndEvent", "identifier": "EndEvent_" + str(trigger["verb"].idx), "value": trigger["verb"].lemma_, "actor": "Default", "predecessor": predecessor}
+                bpmn_element = {"category": "bpmn:EndEvent", "identifier": "EndEvent_" + str(trigger["verb"].idx), "value": get_event_label(trigger["verb"]), "actor": "Default",
+                                "predecessor": predecessor}
                 elements.append(bpmn_element)
 
             for gateway in list(open_gateways):
@@ -280,6 +305,15 @@ def detect_process_termination(verb):
     return None
 
 
+def detect_intermediate_event(verb):
+    has_marker = any(child for child in verb.children if (child.dep_ == "mark" and child.text.lower() in intermediate_event_markers))
+
+    if has_marker:
+        return verb
+
+    return None
+
+
 def get_marker_phrase(verb):
     prep = next((child for child in verb.children if (child.dep_ == "prep")), None)
 
@@ -290,3 +324,75 @@ def get_marker_phrase(verb):
             return (prep.text + " " + pobj.text).lower()
 
     return None
+
+
+def get_event_label(verb):
+    if is_passive_verb(verb):
+        parent_verb = get_parent_verb(verb)
+
+        if parent_verb:
+            return clean_label(get_event_label(parent_verb) + " " + verb._.inflect("VBN"))
+
+        label = next((child for child in verb.children if (child.dep_ == "nsubjpass")), None)
+
+        if label:
+            return clean_label(label.text + " " + verb._.inflect("VBN"))
+    else:
+        if has_children_verbs(verb):
+            label = next((child for child in verb.children if (child.dep_ == "nsubj")), None)
+
+            if label:
+                return label.text
+        else:
+            label = next((child for child in verb.children if (child.dep_ == "dobj")), None)
+
+            if label:
+                return clean_label(label.text + " " + verb._.inflect("VBN"))
+
+    return None
+
+
+def get_task_label(verb):
+    conjunct_verb = get_conjunct_verb(verb)
+
+    if conjunct_verb:
+        return get_task_label(conjunct_verb)
+
+    if is_passive_verb(verb):
+        parent_verb = get_parent_verb(verb)
+
+        if parent_verb:
+            return clean_label(verb.lemma_ + " " + get_task_label(parent_verb))
+
+        label = next((child for child in verb.children if (child.dep_ == "nsubjpass")), None)
+
+        if label:
+            return clean_label(verb.lemma_ + " " + label.text)
+    else:
+        if has_children_verbs(verb):
+            label = next((child for child in verb.children if (child.dep_ == "nsubj")), None)
+
+            if label:
+                return label.text
+        else:
+            label = next((child for child in verb.children if (child.dep_ == "dobj")), None)
+
+            if label:
+                return clean_label(verb.lemma_ + " " + label.text)
+
+    return None
+
+
+def is_passive_verb(verb):
+    has_auxpass = any(child for child in verb.children if (child.dep_ == "auxpass"))
+    has_nsubjpass = any(child for child in verb.children if (child.dep_ == "nsubjpass"))
+
+    # if has_auxpass and has_nsubjpass:
+    if has_auxpass:
+        return True
+    else:
+        return False
+
+
+def clean_label(label):
+    return (" ".join([word for word in label.split() if word.lower() not in stopwords])).capitalize()
