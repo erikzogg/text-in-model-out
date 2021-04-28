@@ -1,1 +1,1 @@
-When a new ticket is created, the service desk agent reads the description. On the basis of the description, the ticket is categorized. If the ticket does not contain enough information, the ticket is rejected. Otherwise, the problem is tried to be resolved. The flow is merged.
+When a new ticket is created, the service desk agent reads the description. On the basis of the description, the ticket is categorized. If the ticket does not contain enough information, the ticket is rejected. Otherwise, the problem is tried to be resolved.

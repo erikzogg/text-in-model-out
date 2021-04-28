@@ -6,9 +6,8 @@ from pathlib import Path
 exclusive_markers = ["if", "in case", "in the case", "for the case"]
 parallel_markers = ["while", "at the same time"]
 sequence_flow_change_markers = ["otherwise", "in the other case"]
-sequence_flow_join_markers = ["the sequence flow", "the flow", "once one of these activities", "once these activities", "after each of these activities"]
-sequence_flow_join_verbs = ["merge", "perform", "complete"]
-sequence_flow_join_advmod = ["after", "once"]
+sequence_flow_join_markers = ["the sequence flow", "the flow", "once one of these activities", "once these activities", "after each of these activities", "after these activities"]
+sequence_flow_join_verbs = ["merge", "perform", "complete", "execute"]
 process_termination_markers = ["the business process", "this business process", "the process", "this process"]
 process_termination_verbs = ["end", "finish", "stop", "terminate"]
 
@@ -137,8 +136,9 @@ def parse_triggers(triggers):
 
                     elements.append(bpmn_element)
                     predecessor = bpmn_element.get('identifier')
-                    bpmn_element = {"category": "bpmn:EndEvent", "identifier": "EndEvent_" + str(trigger["verb"].idx), "value": trigger["verb"].lemma_, "actor": "Default", "predecessor": predecessor}
-                    elements.append(bpmn_element)
+
+                bpmn_element = {"category": "bpmn:EndEvent", "identifier": "EndEvent_" + str(trigger["verb"].idx), "value": trigger["verb"].lemma_, "actor": "Default", "predecessor": predecessor}
+                elements.append(bpmn_element)
 
                 open_gateways.pop(last_gateway)
                 predecessor = last_gateway
@@ -146,13 +146,41 @@ def parse_triggers(triggers):
                 bpmn_element = {"category": "bpmn:EndEvent", "identifier": "EndEvent_" + str(trigger["verb"].idx), "value": trigger["verb"].lemma_, "actor": "Default", "predecessor": predecessor}
                 elements.append(bpmn_element)
 
+            for gateway in list(open_gateways):
+                if not open_gateways[gateway]:
+                    open_gateways.pop(gateway)
+                    predecessor = gateway
+
     if open_gateways:
-        for gateway in open_gateways:
+        for gateway in list(open_gateways):
             if gateway == list(open_gateways)[-1]:
-                print("Last Gateway")
+                open_gateways[gateway].append(predecessor)
+
+            if "ExclusiveGateway" in gateway:
+                for last_element in open_gateways[gateway]:
+                    bpmn_element = next(element for element in elements if element["identifier"] == last_element)
+
+                    end_event_element = {
+                        "category": "bpmn:EndEvent", "identifier": "EndEvent_" + bpmn_element.get('identifier'), "value": bpmn_element.get('value'),
+                        "actor": bpmn_element.get('actor'), "predecessor": bpmn_element.get('identifier')
+                    }
+                    elements.insert(elements.index(bpmn_element) + 1, end_event_element)
             else:
-                for test in open_gateways[gateway]:
-                    print(next(element for element in elements if element["identifier"] == test))
+                bpmn_element = next(element for element in elements if element["identifier"] in open_gateways[gateway])
+
+                parallel_gateway_join = {
+                    "category": "bpmn:ParallelGateway", "identifier": "ParallelGateway_Join_" + bpmn_element.get('identifier'), "value": "",
+                    "actor": bpmn_element.get('actor'), "predecessors": open_gateways[gateway]
+                }
+
+                elements.append(parallel_gateway_join)
+                end_event_element = {
+                    "category": "bpmn:EndEvent", "identifier": "EndEvent_" + parallel_gateway_join.get('identifier'), "value": "",
+                    "actor": bpmn_element.get('actor'), "predecessor": parallel_gateway_join.get('identifier')
+                }
+                elements.append(end_event_element)
+
+            open_gateways.pop(gateway)
 
     return elements
 
