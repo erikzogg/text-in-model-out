@@ -4,7 +4,7 @@ from spacy import displacy
 from pathlib import Path
 
 exclusive_markers = ["if", "in case", "in the case", "for the case"]
-parallel_markers = ["while", "at the same time"]
+parallel_markers = ["at the same time", "whereas", "while"]
 sequence_flow_change_markers = ["otherwise", "in the other case"]
 sequence_flow_join_markers = ["the sequence flow", "the flow", "once one of these activities", "once these activities", "after each of these activities", "after these activities"]
 sequence_flow_join_verbs = ["merge", "perform", "complete", "execute"]
@@ -214,7 +214,11 @@ def get_parent_verb(verb):
     return next((ancestor for ancestor in verb.ancestors if (verb in ancestor.children and verb.dep_ == "xcomp")), None)
 
 
-def get_conjunct_verb(verb):
+def get_conjunct_children_verb(verb):
+    return next((child for child in verb.children if (child.dep_ == "conj")), None)
+
+
+def get_conjunct_parent_verb(verb):
     return next((ancestor for ancestor in verb.ancestors if (verb in ancestor.children and verb.dep_ == "conj")), None)
 
 
@@ -233,10 +237,10 @@ def detect_exclusive_gateway(verb):
     if parent_verb:
         return detect_exclusive_gateway(parent_verb)
 
-    conjunct_verb = get_conjunct_verb(verb)
+    conjunct_parent_verb = get_conjunct_parent_verb(verb)
 
-    if conjunct_verb:
-        return detect_exclusive_gateway(conjunct_verb)
+    if conjunct_parent_verb:
+        return detect_exclusive_gateway(conjunct_parent_verb)
 
     mark = next((child for child in verb.children if (child.dep_ == "mark" and child.text.lower() in exclusive_markers)), None)
 
@@ -327,47 +331,39 @@ def get_marker_phrase(verb):
 
 
 def get_event_label(verb):
-    if is_passive_verb(verb):
-        parent_verb = get_parent_verb(verb)
+    business_object = get_object(verb)
 
-        if parent_verb:
-            return clean_label(get_event_label(parent_verb) + " " + verb._.inflect("VBN"))
-
-        label = next((child for child in verb.children if (child.dep_ == "nsubjpass")), None)
-
-        if label:
-            return clean_label(label.text + " " + verb._.inflect("VBN"))
-    else:
-        if has_children_verbs(verb):
-            label = next((child for child in verb.children if (child.dep_ == "nsubj")), None)
-
-            if label:
-                return label.text
-        else:
-            label = next((child for child in verb.children if (child.dep_ == "dobj")), None)
-
-            if label:
-                return clean_label(label.text + " " + verb._.inflect("VBN"))
+    if business_object:
+        return clean_label(business_object + " " + verb._.inflect("VBN"))
 
     return None
 
 
 def get_task_label(verb):
-    conjunct_verb = get_conjunct_verb(verb)
+    business_object = get_object(verb)
 
-    if conjunct_verb:
-        return get_task_label(conjunct_verb)
+    if business_object:
+        return clean_label(verb.lemma_ + " " + business_object)
 
+    return None
+
+
+def get_object(verb):
     if is_passive_verb(verb):
         parent_verb = get_parent_verb(verb)
 
         if parent_verb:
-            return clean_label(verb.lemma_ + " " + get_task_label(parent_verb))
+            return get_object(parent_verb)
 
         label = next((child for child in verb.children if (child.dep_ == "nsubjpass")), None)
 
         if label:
-            return clean_label(verb.lemma_ + " " + label.text)
+            return label.text
+
+        conjunct_parent_verb = get_conjunct_parent_verb(verb)
+
+        if conjunct_parent_verb:
+            return get_object(conjunct_parent_verb)
     else:
         if has_children_verbs(verb):
             label = next((child for child in verb.children if (child.dep_ == "nsubj")), None)
@@ -378,17 +374,31 @@ def get_task_label(verb):
             label = next((child for child in verb.children if (child.dep_ == "dobj")), None)
 
             if label:
-                return clean_label(verb.lemma_ + " " + label.text)
+                return label.text
+
+            conjunct_children_verb = get_conjunct_children_verb(verb)
+
+            if conjunct_children_verb:
+                return get_object(conjunct_children_verb)
 
     return None
 
 
 def is_passive_verb(verb):
+    parent_verb = get_parent_verb(verb)
+
+    if parent_verb:
+        return is_passive_verb(parent_verb)
+
+    conjunct_parent_verb = get_conjunct_parent_verb(verb)
+
+    if conjunct_parent_verb:
+        return is_passive_verb(conjunct_parent_verb)
+
     has_auxpass = any(child for child in verb.children if (child.dep_ == "auxpass"))
     has_nsubjpass = any(child for child in verb.children if (child.dep_ == "nsubjpass"))
 
-    # if has_auxpass and has_nsubjpass:
-    if has_auxpass:
+    if has_auxpass and has_nsubjpass:
         return True
     else:
         return False
