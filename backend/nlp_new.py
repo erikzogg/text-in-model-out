@@ -21,7 +21,7 @@ def parse(text):
     doc = nlp(text)
 
     triggers = parse_verbs(doc)
-    elements = parse_triggers(triggers)
+    elements = parse_triggers(doc, triggers)
 
     svg = displacy.render(doc, style="dep")
 
@@ -83,7 +83,7 @@ def parse_verbs(doc):
     return triggers
 
 
-def parse_triggers(triggers):
+def parse_triggers(doc, triggers):
     elements = []
 
     predecessor = None
@@ -91,31 +91,24 @@ def parse_triggers(triggers):
 
     for trigger in triggers:
         if trigger == triggers[0]:
-            bpmn_element = {
-                "category": "bpmn:StartEvent", "identifier": "StartEvent_" + str(trigger["verb"].idx), "value": get_event_label(trigger["verb"]), "actor": "Default", "predecessor": predecessor
-            }
+            bpmn_element = {"category": "bpmn:StartEvent", "identifier": str(trigger["verb"].i), "value": get_event_label(trigger["verb"]), "actor": "Default", "predecessor": predecessor}
             elements.append(bpmn_element)
             predecessor = bpmn_element.get('identifier')
         elif trigger.get('category') == "activity":
-            bpmn_element = {
-                "category": "bpmn:Task", "identifier": "Task_" + str(trigger["verb"].idx), "value": get_task_label(trigger["verb"]), "actor": "Default", "predecessor": predecessor
-            }
+            bpmn_element = {"category": "bpmn:Task", "identifier": str(trigger["verb"].i), "value": get_task_label(trigger["verb"]), "actor": "Default", "predecessor": predecessor}
             elements.append(bpmn_element)
             predecessor = bpmn_element.get('identifier')
         elif trigger.get('category') == "intermediate_event":
-            bpmn_element = {
-                "category": "bpmn:IntermediateThrowEvent", "identifier": "IntermediateThrowEvent_" + str(trigger["verb"].idx),
-                "value": get_event_label(trigger["verb"]), "actor": "Default", "predecessor": predecessor
-            }
+            bpmn_element = {"category": "bpmn:IntermediateThrowEvent", "identifier": str(trigger["verb"].i), "value": get_event_label(trigger["verb"]), "actor": "Default", "predecessor": predecessor}
             elements.append(bpmn_element)
             predecessor = bpmn_element.get('identifier')
         elif trigger.get('category') == "exclusive_gateway":
-            bpmn_element = {"category": "bpmn:ExclusiveGateway", "identifier": "ExclusiveGateway_" + str(trigger["verb"].idx), "value": "", "actor": "Default", "predecessor": predecessor}
+            bpmn_element = {"category": "bpmn:ExclusiveGateway", "identifier": "ExclusiveGateway_" + str(trigger["verb"].i), "value": "", "actor": "Default", "predecessor": predecessor}
             elements.append(bpmn_element)
             predecessor = bpmn_element.get('identifier')
             open_gateways[bpmn_element.get('identifier')] = []
         elif trigger.get('category') == "parallel_gateway":
-            bpmn_element = {"category": "bpmn:ParallelGateway", "identifier": "ParallelGateway_" + str(trigger["verb"].idx), "value": "", "actor": "Default", "predecessor": predecessor}
+            bpmn_element = {"category": "bpmn:ParallelGateway", "identifier": "ParallelGateway_" + str(trigger["verb"].i), "value": "", "actor": "Default", "predecessor": predecessor}
             elements.append(bpmn_element)
             predecessor = bpmn_element.get('identifier')
             open_gateways[bpmn_element.get('identifier')] = []
@@ -134,14 +127,11 @@ def parse_triggers(triggers):
             open_gateways[last_gateway].append(predecessor)
 
             if "ExclusiveGateway" in last_gateway:
-                bpmn_element = {
-                    "category": "bpmn:ExclusiveGateway", "identifier": "ExclusiveGateway_Join_" + str(trigger["verb"].idx), "value": "", "actor": "Default", "predecessors": open_gateways[last_gateway]
-                }
+                category = "bpmn:ExclusiveGateway"
             else:
-                bpmn_element = {
-                    "category": "bpmn:ParallelGateway", "identifier": "ParallelGateway_Join_" + str(trigger["verb"].idx), "value": "", "actor": "Default", "predecessors": open_gateways[last_gateway]
-                }
+                category = "bpmn:ParallelGateway"
 
+            bpmn_element = {"category": category, "identifier": last_gateway + "_Join", "value": "", "actor": "Default", "predecessors": open_gateways[last_gateway]}
             elements.append(bpmn_element)
             predecessor = bpmn_element.get('identifier')
             open_gateways.pop(last_gateway)
@@ -152,23 +142,18 @@ def parse_triggers(triggers):
                 if "ParallelGateway" in last_gateway:
                     open_gateways[last_gateway].append(predecessor)
 
-                    bpmn_element = {
-                        "category": "bpmn:ParallelGateway", "identifier": "ParallelGateway_Join_" + str(trigger["verb"].idx), "value": "", "actor": "Default",
-                        "predecessors": open_gateways[last_gateway]
-                    }
-
+                    bpmn_element = {"category": "bpmn:ParallelGateway", "identifier": last_gateway + "_Join", "value": "", "actor": "Default", "predecessors": open_gateways[last_gateway]}
                     elements.append(bpmn_element)
                     predecessor = bpmn_element.get('identifier')
+                    bpmn_element = {"category": "bpmn:EndEvent", "identifier": str(trigger["verb"].i), "value": "Process terminated", "actor": "Default", "predecessor": predecessor}
+                else:
+                    bpmn_element = {"category": "bpmn:EndEvent", "identifier": str(trigger["verb"].i), "value": get_event_label(doc[int(predecessor)]), "actor": "Default", "predecessor": predecessor}
 
-                bpmn_element = {"category": "bpmn:EndEvent", "identifier": "EndEvent_" + str(trigger["verb"].idx), "value": get_event_label(trigger["verb"]), "actor": "Default",
-                                "predecessor": predecessor}
                 elements.append(bpmn_element)
-
-                open_gateways.pop(last_gateway)
                 predecessor = last_gateway
+                open_gateways.pop(last_gateway)
             else:
-                bpmn_element = {"category": "bpmn:EndEvent", "identifier": "EndEvent_" + str(trigger["verb"].idx), "value": get_event_label(trigger["verb"]), "actor": "Default",
-                                "predecessor": predecessor}
+                bpmn_element = {"category": "bpmn:EndEvent", "identifier": str(trigger["verb"].i), "value": get_event_label(doc[int(predecessor)]), "actor": "Default", "predecessor": predecessor}
                 elements.append(bpmn_element)
 
             for gateway in list(open_gateways):
@@ -186,7 +171,7 @@ def parse_triggers(triggers):
                     bpmn_element = next(element for element in elements if element["identifier"] == last_element)
 
                     end_event_element = {
-                        "category": "bpmn:EndEvent", "identifier": "EndEvent_" + bpmn_element.get('identifier'), "value": bpmn_element.get('value'),
+                        "category": "bpmn:EndEvent", "identifier": "EndEvent_" + bpmn_element.get('identifier'), "value": get_event_label(doc[int(bpmn_element.get('identifier'))]),
                         "actor": bpmn_element.get('actor'), "predecessor": bpmn_element.get('identifier')
                     }
                     elements.insert(elements.index(bpmn_element) + 1, end_event_element)
@@ -194,13 +179,12 @@ def parse_triggers(triggers):
                 bpmn_element = next(element for element in elements if element["identifier"] in open_gateways[gateway])
 
                 parallel_gateway_join = {
-                    "category": "bpmn:ParallelGateway", "identifier": "ParallelGateway_Join_" + bpmn_element.get('identifier'), "value": "",
-                    "actor": bpmn_element.get('actor'), "predecessors": open_gateways[gateway]
+                    "category": "bpmn:ParallelGateway", "identifier": gateway + "_Join", "value": "", "actor": bpmn_element.get('actor'), "predecessors": open_gateways[gateway]
                 }
-
                 elements.append(parallel_gateway_join)
+
                 end_event_element = {
-                    "category": "bpmn:EndEvent", "identifier": "EndEvent_" + parallel_gateway_join.get('identifier'), "value": "",
+                    "category": "bpmn:EndEvent", "identifier": "EndEvent_" + parallel_gateway_join.get('identifier'), "value": "Process terminated",
                     "actor": bpmn_element.get('actor'), "predecessor": parallel_gateway_join.get('identifier')
                 }
                 elements.append(end_event_element)
@@ -345,7 +329,7 @@ def get_task_label(verb):
     if business_object:
         return clean_label(verb.lemma_ + " " + business_object)
 
-    return None
+    return clean_label(verb.lemma_)
 
 
 def get_object(verb):
