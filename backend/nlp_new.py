@@ -11,7 +11,8 @@ sequence_flow_join_verbs = ["merge", "perform", "complete", "execute"]
 process_termination_markers = ["the business process", "this business process", "the process", "this process"]
 process_termination_verbs = ["end", "finish", "stop", "terminate"]
 intermediate_event_markers = ["once", "after"]
-ignored_prepositional_phrases = ["at the same time", "in addition", "in the other case"]
+ignored_conditional_phrases = ["if", "in case", "that", "for the case"]
+ignored_prepositional_phrases = ["at the same time", "in addition", "in case", "in the case", "in the other case", "for the case"]
 stopwords = ["a", "an", "the"]
 
 
@@ -21,8 +22,8 @@ def parse(text):
 
     doc = nlp(text)
 
-    triggers = parse_verbs(doc)
-    elements = parse_triggers(doc, triggers)
+    triggers = get_triggers(doc)
+    elements = get_elements(doc, triggers)
 
     svg = displacy.render(doc, style="dep")
 
@@ -32,7 +33,7 @@ def parse(text):
     return elements
 
 
-def parse_verbs(doc):
+def get_triggers(doc):
     triggers = []
 
     for sent in doc.sents:
@@ -79,7 +80,7 @@ def parse_verbs(doc):
             if has_children_verbs(verb):
                 continue
 
-            business_object = get_object(verb)
+            business_object = get_business_object(verb)
 
             if business_object:
                 triggers.append({"category": "activity", "verb": verb})
@@ -88,7 +89,7 @@ def parse_verbs(doc):
     return triggers
 
 
-def parse_triggers(doc, triggers):
+def get_elements(doc, triggers):
     elements = []
 
     predecessor = None
@@ -108,7 +109,10 @@ def parse_triggers(doc, triggers):
             elements.append(bpmn_element)
             predecessor = bpmn_element.get('identifier')
         elif trigger.get('category') == "exclusive_gateway":
-            bpmn_element = {"category": "bpmn:ExclusiveGateway", "identifier": "ExclusiveGateway_" + str(trigger["verb"].i), "value": "", "actor": "Default", "predecessor": predecessor}
+            bpmn_element = {
+                "category": "bpmn:ExclusiveGateway", "identifier": "ExclusiveGateway_" + str(trigger["verb"].i),
+                "value": get_conditional_label(doc, trigger["verb"]), "actor": "Default", "predecessor": predecessor
+            }
             elements.append(bpmn_element)
             predecessor = bpmn_element.get('identifier')
             open_gateways[bpmn_element.get('identifier')] = []
@@ -324,7 +328,7 @@ def get_marker_phrase(verb):
 
 
 def get_event_label(verb):
-    business_object = get_object(verb)
+    business_object = get_business_object(verb)
 
     if business_object:
         verb_particle = get_verb_particle(verb)
@@ -338,7 +342,7 @@ def get_event_label(verb):
 
 
 def get_task_label(verb):
-    business_object = get_object(verb)
+    business_object = get_business_object(verb)
 
     if business_object:
         verb_particle = get_verb_particle(verb)
@@ -351,12 +355,21 @@ def get_task_label(verb):
     return clean_label(verb.lemma_)
 
 
-def get_object(verb):
+def get_conditional_label(doc, verb):
+    text = doc[verb.left_edge.i:verb.right_edge.i + 1].text.lower()
+
+    for phrase in ignored_conditional_phrases:
+        text = text.replace(phrase, "")
+
+    return clean_label(text + "?")
+
+
+def get_business_object(verb):
     if is_passive_verb(verb):
         parent_verb = get_parent_verb(verb)
 
         if parent_verb:
-            return get_object(parent_verb)
+            return get_business_object(parent_verb)
 
         label = next((child for child in verb.children if (child.dep_ == "nsubjpass")), None)
 
@@ -371,7 +384,7 @@ def get_object(verb):
         conjunct_parent_verb = get_conjunct_parent_verb(verb)
 
         if conjunct_parent_verb:
-            return get_object(conjunct_parent_verb)
+            return get_business_object(conjunct_parent_verb)
     else:
         if has_children_verbs(verb):
             label = next((child for child in verb.children if (child.dep_ == "nsubj")), None)
@@ -392,7 +405,12 @@ def get_object(verb):
             conjunct_children_verb = get_conjunct_children_verb(verb)
 
             if conjunct_children_verb:
-                return get_object(conjunct_children_verb)
+                return get_business_object(conjunct_children_verb)
+
+    prepositional_phrase = get_prepositional_phrase(verb)
+
+    if prepositional_phrase:
+        return prepositional_phrase
 
     return None
 
