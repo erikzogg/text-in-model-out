@@ -13,7 +13,7 @@ let initApp = function () {
 
     buttonCreateModel.addEventListener('click', function () {
         this.setAttribute('disabled', 'disabled');
-        this.innerHTML = 'Please wait...';
+        this.innerHTML = 'Please wait…';
 
         let formData = new FormData();
         formData.append('process_description', document.getElementById('process-description').value);
@@ -149,23 +149,23 @@ let handleResponse = async function (data) {
 
     elements.forEach(function (element, index) {
         let bpmnElement = modeling.createShape(
-            {type: element.type},
+            {type: element.category},
             {x: 150 * index, y: lanesPosition[element.actor.replace(/\s/g, '')] * 200},
             participant
         );
-        modeling.updateProperties(bpmnElement, {id: element.id, name: element.value});
+        modeling.updateProperties(bpmnElement, {id: element.identifier, name: element.value});
 
         if (element.predecessor != null) {
             cli.connect(
                 element.predecessor,
-                element.id,
+                element.identifier,
                 'bpmn:SequenceFlow'
             );
         } else if (element.predecessors != null) {
             element.predecessors.forEach(function (predecessor) {
                 cli.connect(
                     predecessor,
-                    element.id,
+                    element.identifier,
                     'bpmn:SequenceFlow'
                 );
             });

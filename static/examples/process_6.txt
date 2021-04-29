@@ -1,1 +1,1 @@
-A customers enters the shop. If the room is empty, the customer drinks tea. Otherwise, the customer eats vegetables. Next, the customer buys a snack while the customer plays football.
+A customer enters the shop. If the room is empty, the customer drinks tea. Otherwise, the customer eats vegetables. Next, the customer buys a snack while the customer plays football.

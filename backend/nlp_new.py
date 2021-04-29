@@ -13,7 +13,7 @@ process_termination_verbs = ["end", "finish", "stop", "terminate"]
 intermediate_event_markers = ["once", "after"]
 ignored_conditional_phrases = ["if", "in case", "that", "for the case"]
 ignored_prepositional_phrases = ["at the same time", "in addition", "in case", "in the case", "in the other case", "for the case"]
-stopwords = ["a", "an", "the"]
+stopwords = ["a", "an", "the", "she", "her", "he", "his"]
 
 
 def parse(text):
@@ -92,35 +92,40 @@ def get_triggers(doc):
 def get_elements(doc, triggers):
     elements = []
 
+    actor = "Default"
     predecessor = None
     open_gateways = {}
 
     for trigger in triggers:
+        if trigger == triggers[0] or trigger.get('category') in ["activity", "intermediate_event"]:
+            new_actor = get_actor_label(trigger["verb"])
+            if new_actor:
+                actor = new_actor
         if trigger == triggers[0]:
-            bpmn_element = {"category": "bpmn:StartEvent", "identifier": str(trigger["verb"].i), "value": get_event_label(trigger["verb"]), "actor": "Default", "predecessor": predecessor}
-            elements.append(bpmn_element)
-            predecessor = bpmn_element.get('identifier')
+            element = {"category": "bpmn:StartEvent", "identifier": str(trigger["verb"].i), "value": get_event_label(trigger["verb"]), "actor": actor, "predecessor": predecessor}
+            elements.append(element)
+            predecessor = element.get('identifier')
         elif trigger.get('category') == "activity":
-            bpmn_element = {"category": "bpmn:Task", "identifier": str(trigger["verb"].i), "value": get_task_label(trigger["verb"]), "actor": "Default", "predecessor": predecessor}
-            elements.append(bpmn_element)
-            predecessor = bpmn_element.get('identifier')
+            element = {"category": "bpmn:Task", "identifier": str(trigger["verb"].i), "value": get_task_label(trigger["verb"]), "actor": actor, "predecessor": predecessor}
+            elements.append(element)
+            predecessor = element.get('identifier')
         elif trigger.get('category') == "intermediate_event":
-            bpmn_element = {"category": "bpmn:IntermediateThrowEvent", "identifier": str(trigger["verb"].i), "value": get_event_label(trigger["verb"]), "actor": "Default", "predecessor": predecessor}
-            elements.append(bpmn_element)
-            predecessor = bpmn_element.get('identifier')
+            element = {"category": "bpmn:IntermediateThrowEvent", "identifier": str(trigger["verb"].i), "value": get_event_label(trigger["verb"]), "actor": actor, "predecessor": predecessor}
+            elements.append(element)
+            predecessor = element.get('identifier')
         elif trigger.get('category') == "exclusive_gateway":
-            bpmn_element = {
+            element = {
                 "category": "bpmn:ExclusiveGateway", "identifier": "ExclusiveGateway_" + str(trigger["verb"].i),
-                "value": get_conditional_label(doc, trigger["verb"]), "actor": "Default", "predecessor": predecessor
+                "value": get_conditional_label(doc, trigger["verb"]), "actor": actor, "predecessor": predecessor
             }
-            elements.append(bpmn_element)
-            predecessor = bpmn_element.get('identifier')
-            open_gateways[bpmn_element.get('identifier')] = []
+            elements.append(element)
+            predecessor = element.get('identifier')
+            open_gateways[element.get('identifier')] = []
         elif trigger.get('category') == "parallel_gateway":
-            bpmn_element = {"category": "bpmn:ParallelGateway", "identifier": "ParallelGateway_" + str(trigger["verb"].i), "value": "", "actor": "Default", "predecessor": predecessor}
-            elements.append(bpmn_element)
-            predecessor = bpmn_element.get('identifier')
-            open_gateways[bpmn_element.get('identifier')] = []
+            element = {"category": "bpmn:ParallelGateway", "identifier": "ParallelGateway_" + str(trigger["verb"].i), "value": "", "actor": actor, "predecessor": predecessor}
+            elements.append(element)
+            predecessor = element.get('identifier')
+            open_gateways[element.get('identifier')] = []
         elif trigger.get('category') == "sequence_flow_change":
             if not open_gateways:
                 continue
@@ -140,9 +145,9 @@ def get_elements(doc, triggers):
             else:
                 category = "bpmn:ParallelGateway"
 
-            bpmn_element = {"category": category, "identifier": last_gateway + "_Join", "value": "", "actor": "Default", "predecessors": open_gateways[last_gateway]}
-            elements.append(bpmn_element)
-            predecessor = bpmn_element.get('identifier')
+            element = {"category": category, "identifier": last_gateway + "_Join", "value": "", "actor": actor, "predecessors": open_gateways[last_gateway]}
+            elements.append(element)
+            predecessor = element.get('identifier')
             open_gateways.pop(last_gateway)
         elif trigger.get('category') == "process_termination":
             if open_gateways:
@@ -151,19 +156,19 @@ def get_elements(doc, triggers):
                 if "ParallelGateway" in last_gateway:
                     open_gateways[last_gateway].append(predecessor)
 
-                    bpmn_element = {"category": "bpmn:ParallelGateway", "identifier": last_gateway + "_Join", "value": "", "actor": "Default", "predecessors": open_gateways[last_gateway]}
-                    elements.append(bpmn_element)
-                    predecessor = bpmn_element.get('identifier')
-                    bpmn_element = {"category": "bpmn:EndEvent", "identifier": str(trigger["verb"].i), "value": "Process terminated", "actor": "Default", "predecessor": predecessor}
+                    element = {"category": "bpmn:ParallelGateway", "identifier": last_gateway + "_Join", "value": "", "actor": actor, "predecessors": open_gateways[last_gateway]}
+                    elements.append(element)
+                    predecessor = element.get('identifier')
+                    element = {"category": "bpmn:EndEvent", "identifier": str(trigger["verb"].i), "value": "Process terminated", "actor": actor, "predecessor": predecessor}
                 else:
-                    bpmn_element = {"category": "bpmn:EndEvent", "identifier": str(trigger["verb"].i), "value": get_event_label(doc[int(predecessor)]), "actor": "Default", "predecessor": predecessor}
+                    element = {"category": "bpmn:EndEvent", "identifier": str(trigger["verb"].i), "value": get_event_label(doc[int(predecessor)]), "actor": actor, "predecessor": predecessor}
 
-                elements.append(bpmn_element)
+                elements.append(element)
                 predecessor = last_gateway
                 open_gateways.pop(last_gateway)
             else:
-                bpmn_element = {"category": "bpmn:EndEvent", "identifier": str(trigger["verb"].i), "value": get_event_label(doc[int(predecessor)]), "actor": "Default", "predecessor": predecessor}
-                elements.append(bpmn_element)
+                element = {"category": "bpmn:EndEvent", "identifier": str(trigger["verb"].i), "value": get_event_label(doc[int(predecessor)]), "actor": actor, "predecessor": predecessor}
+                elements.append(element)
 
             for gateway in list(open_gateways):
                 if not open_gateways[gateway]:
@@ -177,24 +182,24 @@ def get_elements(doc, triggers):
 
             if "ExclusiveGateway" in gateway:
                 for last_element in open_gateways[gateway]:
-                    bpmn_element = next(element for element in elements if element["identifier"] == last_element)
+                    element = next(element for element in elements if element["identifier"] == last_element)
 
                     end_event_element = {
-                        "category": "bpmn:EndEvent", "identifier": "EndEvent_" + bpmn_element.get('identifier'), "value": get_event_label(doc[int(bpmn_element.get('identifier'))]),
-                        "actor": bpmn_element.get('actor'), "predecessor": bpmn_element.get('identifier')
+                        "category": "bpmn:EndEvent", "identifier": "EndEvent_" + element.get('identifier'), "value": get_event_label(doc[int(element.get('identifier'))]),
+                        "actor": element.get('actor'), "predecessor": element.get('identifier')
                     }
-                    elements.insert(elements.index(bpmn_element) + 1, end_event_element)
+                    elements.insert(elements.index(element) + 1, end_event_element)
             else:
-                bpmn_element = next(element for element in elements if element["identifier"] in open_gateways[gateway])
+                element = next(element for element in elements if element["identifier"] in open_gateways[gateway])
 
                 parallel_gateway_join = {
-                    "category": "bpmn:ParallelGateway", "identifier": gateway + "_Join", "value": "", "actor": bpmn_element.get('actor'), "predecessors": open_gateways[gateway]
+                    "category": "bpmn:ParallelGateway", "identifier": gateway + "_Join", "value": "", "actor": element.get('actor'), "predecessors": open_gateways[gateway]
                 }
                 elements.append(parallel_gateway_join)
 
                 end_event_element = {
                     "category": "bpmn:EndEvent", "identifier": "EndEvent_" + parallel_gateway_join.get('identifier'), "value": "Process terminated",
-                    "actor": bpmn_element.get('actor'), "predecessor": parallel_gateway_join.get('identifier')
+                    "actor": element.get('actor'), "predecessor": parallel_gateway_join.get('identifier')
                 }
                 elements.append(end_event_element)
 
@@ -364,6 +369,34 @@ def get_conditional_label(doc, verb):
     return clean_label(text + "?")
 
 
+def get_actor_label(verb):
+    if is_passive_verb(verb):
+        agent = next((child for child in verb.children if (child.dep_ == "agent")), None)
+
+        if agent:
+            actor = next((child for child in agent.children if (child.dep_ == "pobj")), None)
+
+            if actor:
+                return clean_actor_label(actor.text)
+
+        conjunct_children_verb = get_conjunct_children_verb(verb)
+
+        if conjunct_children_verb:
+            return get_actor_label(conjunct_children_verb)
+    else:
+        actor = next((child for child in verb.children if (child.dep_ == "nsubj")), None)
+
+        if actor:
+            return clean_actor_label(actor.text)
+
+        conjunct_parent_verb = get_conjunct_parent_verb(verb)
+
+        if conjunct_parent_verb:
+            return get_actor_label(conjunct_parent_verb)
+
+    return None
+
+
 def get_business_object(verb):
     if is_passive_verb(verb):
         parent_verb = get_parent_verb(verb)
@@ -407,6 +440,11 @@ def get_business_object(verb):
             if conjunct_children_verb:
                 return get_business_object(conjunct_children_verb)
 
+            parent_verb = get_parent_verb(verb)
+
+            if parent_verb:
+                return get_business_object(parent_verb)
+
     prepositional_phrase = get_prepositional_phrase(verb)
 
     if prepositional_phrase:
@@ -439,11 +477,6 @@ def get_prepositional_phrase(verb):
 
 
 def is_passive_verb(verb):
-    parent_verb = get_parent_verb(verb)
-
-    if parent_verb:
-        return is_passive_verb(parent_verb)
-
     conjunct_parent_verb = get_conjunct_parent_verb(verb)
 
     if conjunct_parent_verb:
@@ -454,9 +487,21 @@ def is_passive_verb(verb):
 
     if has_auxpass and has_nsubjpass:
         return True
-    else:
-        return False
+
+    if has_auxpass and get_parent_verb(verb):
+        return True
+
+    return False
 
 
 def clean_label(label):
     return (" ".join([word for word in label.split() if word.lower() not in stopwords])).capitalize()
+
+
+def clean_actor_label(label):
+    label = (" ".join([word for word in label.split() if word.lower() not in stopwords]))
+
+    if label.isupper():
+        return label
+
+    return label.title()
