@@ -11,6 +11,7 @@ sequence_flow_join_verbs = ["merge", "perform", "complete", "execute"]
 process_termination_markers = ["the business process", "this business process", "the process", "this process"]
 process_termination_verbs = ["end", "finish", "stop", "terminate"]
 intermediate_event_markers = ["once", "after"]
+ignored_prepositional_phrases = ["at the same time", "in addition", "in the other case"]
 stopwords = ["a", "an", "the"]
 
 
@@ -78,7 +79,11 @@ def parse_verbs(doc):
             if has_children_verbs(verb):
                 continue
 
-            triggers.append({"category": "activity", "verb": verb})
+            business_object = get_object(verb)
+
+            if business_object:
+                triggers.append({"category": "activity", "verb": verb})
+                continue
 
     return triggers
 
@@ -206,6 +211,10 @@ def get_conjunct_parent_verb(verb):
     return next((ancestor for ancestor in verb.ancestors if (verb in ancestor.children and verb.dep_ == "conj")), None)
 
 
+def get_verb_particle(verb):
+    return next((child for child in verb.children if (child.dep_ == "prt")), None)
+
+
 def has_children_verbs(verb):
     verbs = list(child for child in verb.children if (child.dep_ == "xcomp"))
 
@@ -318,6 +327,11 @@ def get_event_label(verb):
     business_object = get_object(verb)
 
     if business_object:
+        verb_particle = get_verb_particle(verb)
+
+        if verb_particle:
+            return clean_label(business_object + " " + verb._.inflect("VBN") + " " + verb_particle.text)
+
         return clean_label(business_object + " " + verb._.inflect("VBN"))
 
     return None
@@ -327,6 +341,11 @@ def get_task_label(verb):
     business_object = get_object(verb)
 
     if business_object:
+        verb_particle = get_verb_particle(verb)
+
+        if verb_particle:
+            return clean_label(verb.lemma_ + " " + verb_particle.text + " " + business_object)
+
         return clean_label(verb.lemma_ + " " + business_object)
 
     return clean_label(verb.lemma_)
@@ -342,6 +361,11 @@ def get_object(verb):
         label = next((child for child in verb.children if (child.dep_ == "nsubjpass")), None)
 
         if label:
+            prepositional_phrase = get_prepositional_phrase(verb)
+
+            if prepositional_phrase:
+                return label.text + " " + prepositional_phrase
+
             return label.text
 
         conjunct_parent_verb = get_conjunct_parent_verb(verb)
@@ -358,6 +382,11 @@ def get_object(verb):
             label = next((child for child in verb.children if (child.dep_ == "dobj")), None)
 
             if label:
+                prepositional_phrase = get_prepositional_phrase(verb)
+
+                if prepositional_phrase:
+                    return label.text + " " + prepositional_phrase
+
                 return label.text
 
             conjunct_children_verb = get_conjunct_children_verb(verb)
@@ -366,6 +395,23 @@ def get_object(verb):
                 return get_object(conjunct_children_verb)
 
     return None
+
+
+def get_prepositional_phrase(verb):
+    prep = next((child for child in verb.children if (child.dep_ == "prep")), None)
+    text = ""
+
+    while prep:
+        pobj = next((child for child in prep.children if (child.dep_ == "pobj")), None)
+
+        if pobj:
+            text += prep.text + " " + pobj.text + " "
+            prep = next((child for child in pobj.children if (child.dep_ == "prep")), None)
+
+    if not text or any(phrase for phrase in ignored_prepositional_phrases if phrase in text.lower()):
+        return None
+
+    return text.strip()
 
 
 def is_passive_verb(verb):
