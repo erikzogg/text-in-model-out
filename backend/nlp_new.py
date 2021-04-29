@@ -398,20 +398,26 @@ def get_object(verb):
 
 
 def get_prepositional_phrase(verb):
-    prep = next((child for child in verb.children if (child.dep_ == "prep")), None)
-    text = ""
+    prepositions = list(child for child in verb.children if (child.dep_ == "prep"))
+    prepositional_phrase = ""
 
-    while prep:
-        pobj = next((child for child in prep.children if (child.dep_ == "pobj")), None)
+    while prepositions:
+        for preposition in prepositions:
+            pobj = next((child for child in preposition.children if (child.dep_ == "pobj")), None)
 
-        if pobj:
-            text += prep.text + " " + pobj.text + " "
-            prep = next((child for child in pobj.children if (child.dep_ == "prep")), None)
+            if pobj:
+                text = preposition.text + " " + pobj.text
 
-    if not text or any(phrase for phrase in ignored_prepositional_phrases if phrase in text.lower()):
+                if not any(phrase for phrase in ignored_prepositional_phrases if phrase in text.lower()):
+                    prepositional_phrase += text + " "
+                    prepositions.extend(list(child for child in pobj.children if (child.dep_ == "prep")))
+
+            prepositions.remove(preposition)
+
+    if not prepositional_phrase:
         return None
-
-    return text.strip()
+    else:
+        return prepositional_phrase.strip()
 
 
 def is_passive_verb(verb):
