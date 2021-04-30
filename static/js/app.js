@@ -175,7 +175,45 @@ let handleResponse = async function (data) {
     cli.elements().forEach(function (element) {
         if (cli.element(element).type === 'bpmn:ExclusiveGateway' || cli.element(element).type === 'bpmn:ParallelGateway') {
             if (cli.element(element).outgoing.length === 2) {
+                /**
+                 * Count all following elements of a gateway
+                 */
+                let indentedElementsGateways = {};
+
                 let predecessors = [];
+                let counter = 0;
+
+                predecessors.push(cli.element(element).outgoing[0].target);
+                counter++;
+
+                while (predecessors.length > 0) {
+                    let predecessor = predecessors[0];
+
+                    if (predecessor.type !== 'bpmn:SequenceFlow') {
+                        if (predecessor.id.includes(cli.element(element).id)) {
+                            counter--;
+                            break;
+                        }
+
+                        cli.element(predecessor.id).outgoing.forEach(function (entry) {
+                            predecessors.push(entry);
+                        });
+                    } else {
+                        if (!predecessors.includes(cli.element(predecessor.id).target)) {
+                            predecessors.push(cli.element(predecessor.id).target);
+                            counter++;
+                        }
+                    }
+
+                    predecessors.splice(0, 1);
+                }
+
+                indentedElementsGateways[cli.element(element).id] = counter;
+
+                /**
+                 * Update vertical alignment
+                 */
+                predecessors = [];
                 let movedElements = [];
 
                 predecessors.push(cli.element(element).outgoing[1].target);
@@ -189,6 +227,33 @@ let handleResponse = async function (data) {
                         }
 
                         cli.move(predecessor.id, {x: null, y: 150});
+                        movedElements.push(predecessor);
+
+                        cli.element(predecessor.id).outgoing.forEach(function (entry) {
+                            predecessors.push(entry);
+                        });
+                    } else {
+                        if (!movedElements.includes(cli.element(predecessor.id).target) && !predecessors.includes(cli.element(predecessor.id).target)) {
+                            predecessors.push(cli.element(predecessor.id).target);
+                        }
+                    }
+
+                    predecessors.splice(0, 1);
+                }
+
+                /**
+                 * Update horizontal alignment
+                 */
+                predecessors = [];
+                movedElements = [];
+
+                predecessors.push(cli.element(element).outgoing[1].target);
+
+                while (predecessors.length > 0) {
+                    let predecessor = predecessors[0];
+
+                    if (predecessor.type !== 'bpmn:SequenceFlow') {
+                        cli.move(predecessor.id, {x: -150 * indentedElementsGateways[cli.element(element).id], y: null});
                         movedElements.push(predecessor);
 
                         cli.element(predecessor.id).outgoing.forEach(function (entry) {
