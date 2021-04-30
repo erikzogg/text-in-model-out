@@ -218,6 +218,12 @@ let handleResponse = async function (data) {
 
                 predecessors.push(cli.element(element).outgoing[1].target);
 
+                let alignmentIndex = 1;
+
+                if (cli.element(element).outgoing[1].target.type === 'bpmn:ExclusiveGateway' || cli.element(element).outgoing[1].target.type === 'bpmn:ParallelGateway') {
+                    alignmentIndex = 2;
+                }
+
                 while (predecessors.length > 0) {
                     let predecessor = predecessors[0];
 
@@ -226,7 +232,7 @@ let handleResponse = async function (data) {
                             break;
                         }
 
-                        cli.move(predecessor.id, {x: null, y: 150});
+                        cli.move(predecessor.id, {x: null, y: 150 * alignmentIndex});
                         movedElements.push(predecessor);
 
                         cli.element(predecessor.id).outgoing.forEach(function (entry) {
