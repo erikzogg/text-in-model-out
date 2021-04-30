@@ -174,41 +174,41 @@ let handleResponse = async function (data) {
 
     cli.elements().forEach(function (element) {
         if (cli.element(element).type === 'bpmn:ExclusiveGateway' || cli.element(element).type === 'bpmn:ParallelGateway') {
-            cli.element(element).outgoing.forEach(function (outgoing, index) {
-                if (index > 0) {
-                    cli.move(outgoing.target.id, {x: -150, y: index * 150});
+            if (cli.element(element).outgoing.length === 2) {
+                let predecessors = [];
+                let movedElements = [];
 
-                    let predecessors = [];
+                predecessors.push(cli.element(element).outgoing[1].target);
 
-                    cli.element(outgoing.target.id).outgoing.forEach(function (entry) {
-                        predecessors.push(entry);
-                    });
+                while (predecessors.length > 0) {
+                    let predecessor = predecessors[0];
 
-                    while (predecessors.length > 0) {
-                        let predecessor = predecessors[0];
-
-                        if (predecessor.type !== 'bpmn:SequenceFlow') {
-                            cli.move(predecessor.id, {x: -150, y: 0});
-
-                            cli.element(predecessor.id).outgoing.forEach(function (entry) {
-                                predecessors.push(entry);
-                            });
-                        } else {
-                            if (!predecessors.includes(cli.element(predecessor.id).target)) {
-                                predecessors.push(cli.element(predecessor.id).target);
-                            }
+                    if (predecessor.type !== 'bpmn:SequenceFlow') {
+                        if (predecessor.id.includes(cli.element(element).id)) {
+                            break;
                         }
 
-                        predecessors.splice(0, 1);
-                    }
-                }
-            });
+                        cli.move(predecessor.id, {x: null, y: 150});
+                        movedElements.push(predecessor);
 
-            if (cli.element(element).type === 'bpmn:ExclusiveGateway') {
-                if (cli.element(element).outgoing.length === 2) {
-                    modeling.updateProperties(cli.element(element).outgoing[0], {name: 'Yes'});
-                    modeling.updateProperties(cli.element(element).outgoing[1], {name: 'No'});
+                        cli.element(predecessor.id).outgoing.forEach(function (entry) {
+                            predecessors.push(entry);
+                        });
+                    } else {
+                        if (!movedElements.includes(cli.element(predecessor.id).target) && !predecessors.includes(cli.element(predecessor.id).target)) {
+                            predecessors.push(cli.element(predecessor.id).target);
+                        }
+                    }
+
+                    predecessors.splice(0, 1);
                 }
+            }
+        }
+
+        if (cli.element(element).type === 'bpmn:ExclusiveGateway') {
+            if (cli.element(element).outgoing.length === 2) {
+                modeling.updateProperties(cli.element(element).outgoing[0], {name: 'Yes'});
+                modeling.updateProperties(cli.element(element).outgoing[1], {name: 'No'});
             }
         }
 
