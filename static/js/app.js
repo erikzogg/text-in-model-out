@@ -142,9 +142,9 @@ let handleResponse = async function (data) {
 
     let lanesPosition = [];
 
-    actors.forEach(function (actor, i) {
-        lanesPosition[actor.replace(/\s/g, '')] = i;
-        modeling.updateProperties(lanes[i], {id: actor.replace(/\s/g, ''), name: actor});
+    actors.forEach(function (actor, index) {
+        lanesPosition[actor.replace(/\s/g, '')] = index;
+        modeling.updateProperties(lanes[index], {id: actor.replace(/\s/g, ''), name: actor});
     });
 
     elements.forEach(function (element, index) {
