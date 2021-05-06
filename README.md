@@ -16,9 +16,8 @@
 ### With Docker (recommended)
 
 ```
-docker-compose build
 docker-compose up -d
-docker-compose run django npm install
+docker-compose run app npm install
 ```
 
 ### Without Docker
