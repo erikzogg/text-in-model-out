@@ -2,9 +2,7 @@ version: '3'
 
 services:
     django:
-        build:
-            context: .
-        image: bachelor-thesis/django
+        image: erikzogg/text-in-model-out
         container_name: bachelor-thesis-django
         hostname: django
         volumes:
