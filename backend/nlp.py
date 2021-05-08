@@ -1,8 +1,19 @@
 import spacy
 import lemminflect
 from spacy import displacy
-from spacy.lang.en.stop_words import STOP_WORDS
 from pathlib import Path
+
+exclusive_markers = ["if", "in case", "in the case", "for the case"]
+parallel_markers = ["at the same time", "whereas", "while"]
+sequence_flow_change_markers = ["otherwise", "in the other case"]
+sequence_flow_join_markers = ["the sequence flow", "the flow", "once one of these activities", "once these activities", "after each of these activities", "after these activities"]
+sequence_flow_join_verbs = ["merge", "perform", "complete", "execute"]
+process_termination_markers = ["the business process", "this business process", "the process", "this process"]
+process_termination_verbs = ["end", "finish", "stop", "terminate"]
+intermediate_event_markers = ["once", "after"]
+ignored_conditional_phrases = ["if", "in case", "that", "for the case"]
+ignored_prepositional_phrases = ["at the same time", "in addition", "in case", "in the case", "in the other case", "for the case"]
+stopwords = ["a", "an", "the", "she", "her", "he", "his"]
 
 
 def parse(text):
@@ -11,420 +22,489 @@ def parse(text):
 
     doc = nlp(text)
 
+    triggers = get_triggers(doc)
+    elements = get_elements(doc, triggers)
+
     svg = displacy.render(doc, style="dep")
 
     output_path = Path("./dependency_plot.svg")
     output_path.open("w", encoding="utf-8").write(svg)
 
-    elements = []
+    return elements
+
+
+def get_triggers(doc):
+    triggers = []
 
     for sent in doc.sents:
         verbs = [token for token in sent if token.pos_ == "VERB"]
 
         for verb in verbs:
-            condition = detect_condition(verb)
+            exclusive_gateway = detect_exclusive_gateway(verb)
 
-            if condition:
-                if condition != "semimodal":
-                    elements.append({"type": "condition", "condition": condition})
+            if exclusive_gateway:
+                if exclusive_gateway == verb:
+                    triggers.append({"category": "exclusive_gateway", "verb": verb})
 
                 continue
 
-            if detect_parallel(verb):
-                elements.insert(len(elements) - 1, {"type": "parallel"})
-                elements.append({"type": "change_flow"})
+            parallel_gateway = detect_parallel_gateway(verb)
 
-            if detect_flowchange(verb):
-                elements.append({"type": "change_flow"})
+            if parallel_gateway:
+                triggers.insert(len(triggers) - 1, {"category": "parallel_gateway", "verb": verb})
+                triggers.append({"category": "sequence_flow_change", "verb": verb})
 
-            if detect_join(verb):
-                elements.append({"type": "join_flow"})
+            sequence_flow_change = detect_sequence_flow_change(verb)
+
+            if sequence_flow_change:
+                triggers.append({"category": "sequence_flow_change", "verb": verb})
+
+            sequence_flow_join = detect_sequence_flow_join(doc, verb)
+
+            if sequence_flow_join:
+                triggers.append({"category": "sequence_flow_join", "verb": verb})
                 continue
 
-            if is_semimodal(verb):
+            process_termination = detect_process_termination(verb)
+
+            if process_termination:
+                triggers.append({"category": "process_termination", "verb": verb})
                 continue
 
-            the_object = get_the_object(verb)
+            intermediate_event = detect_intermediate_event(verb)
 
-            if not the_object:
+            if intermediate_event:
+                triggers.append({"category": "intermediate_event", "verb": verb})
                 continue
 
-            advmod = next((child for child in verb.children if (child.dep_ == "advmod" and child.text.lower() in ["once", "after"])), None)
+            if has_children_verbs(verb):
+                continue
 
-            if advmod:
-                elements.append({"type": "verb", "object": the_object, "verb": verb, "event": True})
+            business_object = get_business_object(verb)
+
+            if business_object:
+                triggers.append({"category": "task", "verb": verb})
+                continue
+
+    if len(triggers) > 0:
+        triggers[0]["category"] = "start_event"
+
+    return triggers
+
+
+def get_elements(doc, triggers):
+    elements = []
+
+    actor = "Default"
+    predecessor = None
+    open_gateways = {}
+
+    for trigger in triggers:
+        if trigger == triggers[0] or trigger.get('category') in ["task", "intermediate_event", "start_event"]:
+            new_actor = get_actor_label(trigger["verb"])
+            if new_actor:
+                actor = new_actor
+        if trigger.get('category') == "start_event":
+            element = {"category": "bpmn:StartEvent", "identifier": str(trigger["verb"].i), "value": get_event_label(trigger["verb"]), "actor": actor, "predecessor": predecessor}
+            elements.append(element)
+            predecessor = element.get('identifier')
+        elif trigger.get('category') == "task":
+            element = {"category": "bpmn:Task", "identifier": str(trigger["verb"].i), "value": get_task_label(trigger["verb"]), "actor": actor, "predecessor": predecessor}
+            elements.append(element)
+            predecessor = element.get('identifier')
+        elif trigger.get('category') == "intermediate_event":
+            element = {"category": "bpmn:IntermediateThrowEvent", "identifier": str(trigger["verb"].i), "value": get_event_label(trigger["verb"]), "actor": actor, "predecessor": predecessor}
+            elements.append(element)
+            predecessor = element.get('identifier')
+        elif trigger.get('category') == "exclusive_gateway":
+            element = {
+                "category": "bpmn:ExclusiveGateway", "identifier": "ExclusiveGateway_" + str(trigger["verb"].i),
+                "value": get_conditional_label(doc, trigger["verb"]), "actor": actor, "predecessor": predecessor
+            }
+            elements.append(element)
+            predecessor = element.get('identifier')
+            open_gateways[element.get('identifier')] = []
+        elif trigger.get('category') == "parallel_gateway":
+            element = {"category": "bpmn:ParallelGateway", "identifier": "ParallelGateway_" + str(trigger["verb"].i), "value": "", "actor": actor, "predecessor": predecessor}
+            elements.append(element)
+            predecessor = element.get('identifier')
+            open_gateways[element.get('identifier')] = []
+        elif trigger.get('category') == "sequence_flow_change":
+            if not open_gateways:
+                continue
+
+            last_gateway = list(open_gateways)[-1]
+            open_gateways[last_gateway].append(predecessor)
+            predecessor = last_gateway
+        elif trigger.get('category') == "sequence_flow_join":
+            if not open_gateways:
+                continue
+
+            last_gateway = list(open_gateways)[-1]
+            open_gateways[last_gateway].append(predecessor)
+
+            if "ExclusiveGateway" in last_gateway:
+                category = "bpmn:ExclusiveGateway"
             else:
-                elements.append({"type": "verb", "object": the_object, "verb": verb, "event": False})
+                category = "bpmn:ParallelGateway"
 
-    return parse_elements(elements)
+            element = {"category": category, "identifier": last_gateway + "_Join", "value": "", "actor": actor, "predecessors": open_gateways[last_gateway]}
+            elements.append(element)
+            predecessor = element.get('identifier')
+            open_gateways.pop(last_gateway)
+        elif trigger.get('category') == "process_termination":
+            if open_gateways:
+                last_gateway = list(open_gateways)[-1]
 
+                if "ParallelGateway" in last_gateway:
+                    open_gateways[last_gateway].append(predecessor)
 
-def detect_join(verb):
-    nsubjpass = next((child for child in verb.children if (child.dep_ == "nsubjpass" and child.text.lower() in ["the sequence flow", "the flow"])), None)
+                    element = {"category": "bpmn:ParallelGateway", "identifier": last_gateway + "_Join", "value": "", "actor": actor, "predecessors": open_gateways[last_gateway]}
+                    elements.append(element)
+                    predecessor = element.get('identifier')
+                    element = {"category": "bpmn:EndEvent", "identifier": str(trigger["verb"].i), "value": "Process terminated", "actor": actor, "predecessor": predecessor}
+                else:
+                    element = {"category": "bpmn:EndEvent", "identifier": str(trigger["verb"].i), "value": get_event_label(doc[int(predecessor)]), "actor": actor, "predecessor": predecessor}
 
-    if verb.lemma_ == "merge" and nsubjpass:
-        return True
-
-    return False
-
-
-def detect_condition(verb):
-    passive = is_passive(verb)
-    parent_verb = get_parent_verb(verb)  # ToDo
-
-    if parent_verb:
-        mark = next((child for child in parent_verb.children if (child.dep_ == "mark" and child.text.lower() in ["if"])), None)
-
-        if mark:
-            return "semimodal"
-    else:
-        mark = next((child for child in verb.children if (child.dep_ == "mark" and child.text.lower() in ["if"])), None)
-
-    if mark:
-        if passive:
-            nsubjpass = next((child for child in verb.children if (child.dep_ == "nsubjpass")), None)
-
-            return nsubjpass.text + " " + verb.text + "?"
-        else:
-            nsubj = next((child for child in verb.children if (child.dep_ == "nsubj")), None)
-            aux = next((child for child in verb.children if (child.dep_ == "aux")), None)
-            negative = next((child for child in verb.children if (child.dep_ == "neg" and child in verb.lefts)), None)
-            dobj = next((child for child in verb.children if (child.dep_ == "dobj")), None)
-
-            if not dobj:
-                neighbor_children = list(verb.rights)
-                condition_text = []
-
-                while neighbor_children:
-                    for child in neighbor_children:
-                        condition_text.append(child.text)
-                        neighbor_children.remove(child)
-                        if child.rights:
-                            for subchild in child.rights:
-                                neighbor_children.append(subchild)
-
-                dobj = " ".join(condition_text)
+                elements.append(element)
+                predecessor = last_gateway
+                open_gateways.pop(last_gateway)
             else:
-                dobj = dobj.text
+                element = {"category": "bpmn:EndEvent", "identifier": str(trigger["verb"].i), "value": get_event_label(doc[int(predecessor)]), "actor": actor, "predecessor": predecessor}
+                elements.append(element)
 
-            conditional_label = nsubj.text
+            for gateway in list(open_gateways):
+                if not open_gateways[gateway]:
+                    open_gateways.pop(gateway)
+                    predecessor = gateway
 
-            if aux:
-                conditional_label += " " + aux.text
+    if open_gateways:
+        for gateway in list(open_gateways):
+            if gateway == list(open_gateways)[-1]:
+                open_gateways[gateway].append(predecessor)
 
-            if negative:
-                conditional_label += " " + negative.text
+            if "ExclusiveGateway" in gateway:
+                for last_element in open_gateways[gateway]:
+                    element = next(element for element in elements if element["identifier"] == last_element)
 
-            conditional_label += " " + verb.text + " " + dobj + "?"
+                    end_event_element = {
+                        "category": "bpmn:EndEvent", "identifier": "EndEvent_" + element.get('identifier'), "value": get_event_label(doc[int(element.get('identifier'))]),
+                        "actor": element.get('actor'), "predecessor": element.get('identifier')
+                    }
+                    elements.insert(elements.index(element) + 1, end_event_element)
+            else:
+                element = next(element for element in elements if element["identifier"] in open_gateways[gateway])
 
-            return conditional_label
+                parallel_gateway_join = {
+                    "category": "bpmn:ParallelGateway", "identifier": gateway + "_Join", "value": "", "actor": element.get('actor'), "predecessors": open_gateways[gateway]
+                }
+                elements.append(parallel_gateway_join)
 
-    prep = next((child for child in verb.children if (child.dep_ == "prep")), None)
+                end_event_element = {
+                    "category": "bpmn:EndEvent", "identifier": "EndEvent_" + parallel_gateway_join.get('identifier'), "value": "Process terminated",
+                    "actor": element.get('actor'), "predecessor": parallel_gateway_join.get('identifier')
+                }
+                elements.append(end_event_element)
 
-    if prep:
-        pobj = next((child for child in prep.children if (child.dep_ == "pobj")), None)
+            open_gateways.pop(gateway)
 
-        if pobj:
-            conditional_conj = prep.lemma_ + " " + pobj.lemma_
-
-            if conditional_conj.lower() in ["for the case", "in case", "in the case"]:
-                neighbor = pobj.nbor()
-                condition_text = [neighbor.text]
-
-                while neighbor.text:
-                    neighbor = neighbor.nbor()
-
-                    if neighbor.text == ",":
-                        break
-
-                    condition_text.append(neighbor.text)
-
-                condition_text = " ".join([word for word in condition_text if word.lower() not in ["a", "an", "of", "that", "the"]]).title() + "?"
-
-                return condition_text
-
-    return False
-
-
-def detect_parallel(verb):
-    mark = next((child for child in verb.children if (child.dep_ == "mark" and child.text.lower() in ["while"])), None)
-
-    if mark:
-        return True
-
-    return False
-
-
-def detect_flowchange(verb):
-    advmod = next((child for child in verb.children if (child.dep_ == "advmod" and child.text.lower() in ["alternatively", "else", "otherwise"])), None)
-
-    if advmod:
-        return True
-
-    return False
-
-
-def is_semimodal(verb):
-    has_xcomp = next((child for child in verb.children if (child.dep_ == "xcomp")), None)
-
-    if has_xcomp:
-        return True
-    else:
-        return False
+    return elements
 
 
 def get_parent_verb(verb):
     return next((ancestor for ancestor in verb.ancestors if (verb in ancestor.children and verb.dep_ == "xcomp")), None)
 
 
-def is_passive(verb):
-    has_auxpass = next((child for child in verb.children if (child.dep_ == "auxpass")), None)
-    has_nsubjpass = next((child for child in verb.children if (child.dep_ == "nsubjpass")), None)
+def get_conjunct_children_verb(verb):
+    return next((child for child in verb.children if (child.dep_ == "conj")), None)
 
-    if has_auxpass and has_nsubjpass:
+
+def get_conjunct_parent_verb(verb):
+    return next((ancestor for ancestor in verb.ancestors if (verb in ancestor.children and verb.dep_ == "conj")), None)
+
+
+def get_verb_particle(verb):
+    return next((child for child in verb.children if (child.dep_ == "prt")), None)
+
+
+def has_children_verbs(verb):
+    verbs = list(child for child in verb.children if (child.dep_ == "xcomp"))
+
+    if verbs:
         return True
     else:
         return False
 
 
-def get_the_object(verb):
-    passive = is_passive(verb)
+def detect_exclusive_gateway(verb):
     parent_verb = get_parent_verb(verb)
 
     if parent_verb:
-        passive = is_passive(parent_verb)
+        return detect_exclusive_gateway(parent_verb)
 
-        if passive:
-            the_object = next((child for child in parent_verb.children if (child.dep_ == "nsubjpass")), None)
-        else:
-            the_object = next((child for child in verb.children if (child.dep_ == "dobj")), None)
+    conjunct_parent_verb = get_conjunct_parent_verb(verb)
 
-            if not the_object:
-                has_auxpass = next((child for child in verb.children if (child.dep_ == "auxpass")), None)
+    if conjunct_parent_verb:
+        return detect_exclusive_gateway(conjunct_parent_verb)
 
-                if has_auxpass:
-                    the_object = next((child for child in parent_verb.children if (child.dep_ == "nsubj")), None)
-    elif not passive:
-        the_object = next((child for child in verb.children if (child.dep_ == "dobj")), None)
+    mark = next((child for child in verb.children if (child.dep_ == "mark" and child.text.lower() in exclusive_markers)), None)
 
-        if not the_object:
-            prep = next((child for child in verb.rights if (child.dep_ == "prep")), None)
+    if mark:
+        return verb
 
-            if prep:
-                neighbor_children = list(prep.rights)
-                condition_text = [prep.text]
-
-                while neighbor_children:
-                    for child in neighbor_children:
-                        if child.is_punct is False:
-                            condition_text.append(child.text)
-                        neighbor_children.remove(child)
-                        if child.rights:
-                            for subchild in child.rights:
-                                neighbor_children.append(subchild)
-
-                the_object = " ".join(condition_text)
-
-                return the_object
-
-            conj = next((child for child in verb.children if (child.dep_ == "conj")), None)
-
-            if conj:
-                return get_the_object(conj)
-        else:
-            prep = next((child for child in verb.rights if (child.dep_ == "prep")), None)
-
-            if prep:
-                neighbor_children = list(prep.rights)
-                condition_text = [prep.text]
-
-                while neighbor_children:
-                    for child in neighbor_children:
-                        if child.is_punct is False:
-                            condition_text.append(child.text)
-                        neighbor_children.remove(child)
-                        if child.rights:
-                            for subchild in child.rights:
-                                neighbor_children.append(subchild)
-
-                return the_object.lemma_ + " " + " ".join(condition_text)
-    else:
-        the_object = next((child for child in verb.children if (child.dep_ == "nsubjpass")), None)
-
-        prep = next((child for child in verb.rights if (child.dep_ == "prep")), None)
-
-        if prep and the_object:
-            neighbor_children = list(prep.rights)
-            condition_text = [prep.text]
-
-            while neighbor_children:
-                for child in neighbor_children:
-                    if child.is_punct is False:
-                        condition_text.append(child.text)
-                    neighbor_children.remove(child)
-                    if child.rights:
-                        for subchild in child.rights:
-                            neighbor_children.append(subchild)
-
-            the_object = the_object.lemma_ + " " + " ".join(condition_text)
-
-            return the_object
-    if the_object:
-        return the_object.lemma_
-    else:
+    if verb == verb.sent.root:
         return None
 
+    marker_phrase = get_marker_phrase(verb.sent.root)
 
-def get_phrasal_verb(verb):
-    phrasal_verb = next((child for child in verb.children if (child.dep_ == "prt")), None)
+    if marker_phrase in exclusive_markers:
+        return verb
 
-    return phrasal_verb
+    return None
 
 
-def get_actor(verb):
-    passive = is_passive(verb)
-    parent_verb = get_parent_verb(verb)
+def detect_parallel_gateway(verb):
+    mark = next((child for child in verb.children if (child.dep_ == "mark" and child.text.lower() in parallel_markers)), None)
 
-    if parent_verb:
+    if mark:
+        return verb
+
+    marker_phrase = get_marker_phrase(verb)
+
+    if marker_phrase in parallel_markers:
+        return verb
+
+    return None
+
+
+def detect_sequence_flow_change(verb):
+    advmod = next((child for child in verb.children if (child.dep_ == "advmod" and child.text.lower() in sequence_flow_change_markers)), None)
+
+    if advmod:
+        return verb
+
+    marker_phrase = get_marker_phrase(verb)
+
+    if marker_phrase in sequence_flow_change_markers:
+        return verb
+
+    return None
+
+
+def detect_sequence_flow_join(doc, verb):
+    nsubjpass = next((child for child in verb.children if (child.dep_ == "nsubjpass" and child.text.lower() in sequence_flow_join_markers)), None)
+
+    if verb.lemma_ in sequence_flow_join_verbs and nsubjpass:
+        return verb
+
+    if verb.lemma_ in sequence_flow_join_verbs and doc[verb.sent.start] in verb.children:
+        if any(marker for marker in sequence_flow_join_markers if marker in doc[verb.sent.start:verb.i].text.lower()):
+            return verb
+
+    return None
+
+
+def detect_process_termination(verb):
+    has_marker = any(child for child in verb.children if (child.dep_ == "nsubj" and child.text.lower() in process_termination_markers))
+    has_verb = (verb.lemma_ in process_termination_verbs)
+
+    if has_marker and has_verb:
+        return verb
+
+    return None
+
+
+def detect_intermediate_event(verb):
+    has_marker = any(child for child in verb.children if (child.dep_ == "mark" and child.text.lower() in intermediate_event_markers))
+
+    if has_marker:
+        return verb
+
+    return None
+
+
+def get_marker_phrase(verb):
+    prep = next((child for child in verb.children if (child.dep_ == "prep")), None)
+
+    if prep:
+        pobj = next((child for child in prep.children if (child.dep_ == "pobj")), None)
+
+        if pobj:
+            return (prep.text + " " + pobj.text).lower()
+
+    return None
+
+
+def get_event_label(verb):
+    business_object = get_business_object(verb)
+
+    if business_object:
+        verb_particle = get_verb_particle(verb)
+
+        if verb_particle:
+            return clean_label(business_object + " " + verb._.inflect("VBN") + " " + verb_particle.text)
+
+        return clean_label(business_object + " " + verb._.inflect("VBN"))
+
+    return None
+
+
+def get_task_label(verb):
+    business_object = get_business_object(verb)
+
+    if business_object:
+        verb_particle = get_verb_particle(verb)
+
+        if verb_particle:
+            return clean_label(verb.lemma_ + " " + verb_particle.text + " " + business_object)
+
+        return clean_label(verb.lemma_ + " " + business_object)
+
+    return clean_label(verb.lemma_)
+
+
+def get_conditional_label(doc, verb):
+    text = doc[verb.left_edge.i:verb.right_edge.i + 1].text.lower()
+
+    for phrase in ignored_conditional_phrases:
+        text = text.replace(phrase, "")
+
+    return clean_label(text + "?")
+
+
+def get_actor_label(verb):
+    if is_passive_verb(verb):
         agent = next((child for child in verb.children if (child.dep_ == "agent")), None)
-        has_auxpass = next((child for child in verb.children if (child.dep_ == "auxpass")), None)
 
         if agent:
             actor = next((child for child in agent.children if (child.dep_ == "pobj")), None)
-        elif not has_auxpass:
-            actor = next((child for child in parent_verb.children if (child.dep_ == "nsubj")), None)
-        else:
-            actor = None
-    elif not passive:
-        actor = next((child for child in verb.children if (child.dep_ == "nsubj")), None)
-    else:
-        agent = next((child for child in verb.children if (child.dep_ == "agent")), None)
-
-        if agent:
-            actor = next((child for child in agent.children if (child.dep_ == "pobj")), None)
-        else:
-            actor = None
-
-    return actor
-
-
-def parse_elements(elements):
-    result = []
-
-    current_actor = "Default"
-    predecessor = None
-    last_gateway = None
-    last_element = None
-    predecessors = []
-    split_gateways = {}
-
-    for element in elements:
-        if element["type"] == "verb":
-            the_object = element['object']
-            verb = element['verb']
-            phrasal_verb = get_phrasal_verb(verb)  # hand in, set up, ...
-
-            the_object = " ".join([word for word in the_object.split() if word.lower() not in ["a", "an", "the"]])
-
-            actor = get_actor(verb)
 
             if actor:
-                actor = " ".join([word for word in actor.lemma_.split() if word.lower() not in STOP_WORDS]).title()
+                return clean_actor_label(actor.text)
 
-                if actor != "":
-                    current_actor = actor
+        conjunct_children_verb = get_conjunct_children_verb(verb)
 
-            if element == elements[0] or element["event"] is True:
-                if element == elements[0]:
-                    type = "bpmn:StartEvent"
-                else:
-                    type = "bpmn:IntermediateThrowEvent"
-
-                if not phrasal_verb:
-                    value = (the_object + " " + verb._.inflect("VBN")).title()
-                    element_id = "".join(value.split())
-                    result.append({"type": type, "value": value, "id": element_id, "actor": current_actor, "predecessor": predecessor})
-                    predecessor = element_id
-                else:
-                    value = (the_object + " " + verb._.inflect("VBN") + " " + phrasal_verb.lemma_).title()
-                    element_id = "".join(value.split())
-                    result.append({"type": type, "value": value, "id": element_id, "actor": current_actor, "predecessor": predecessor})
-                    predecessor = element_id
-            else:
-                if not phrasal_verb:
-                    value = (verb.lemma_ + " " + the_object).title()
-                    element_id = "".join(value.split())
-                    result.append({"type": "bpmn:Task", "value": value, "id": element_id, "actor": current_actor, "predecessor": predecessor})
-                    predecessor = element_id
-                else:
-                    value = (verb.lemma_ + " " + phrasal_verb.lemma_ + " " + the_object).title()
-                    element_id = "".join(value.split())
-                    result.append({"type": "bpmn:Task", "value": value, "id": element_id, "actor": current_actor, "predecessor": predecessor})
-                    predecessor = element_id
-
-            last_element = element_id
-        elif element["type"] == "condition":
-            value = " ".join([word for word in element["condition"].split() if word.lower() not in ["a", "an", "the"]]).title()
-            element_id = "".join(value.split())
-            result.append({"type": "bpmn:ExclusiveGateway", "value": value, "id": element_id, "actor": current_actor, "predecessor": predecessor})
-            predecessor = last_gateway = element_id
-            predecessors = []
-            split_gateways[element_id] = []
-        elif element["type"] == "change_flow":
-            predecessor = last_gateway
-            predecessors.append(last_element)
-            split_gateways[last_gateway].append(last_element)
-        elif element["type"] == "join_flow":
-            element_id = last_gateway + "_join"
-            split_gateways[last_gateway].append(predecessor)
-            predecessors.append(predecessor)
-            if "ParallelGateway" in last_gateway:
-                result.append({"type": "bpmn:ParallelGateway", "value": "", "id": element_id, "actor": current_actor, "predecessors": split_gateways[last_gateway]})
-            else:
-                result.append({"type": "bpmn:ExclusiveGateway", "value": "", "id": element_id, "actor": current_actor, "predecessors": split_gateways[last_gateway]})
-            predecessor = element_id
-            predecessors = []
-
-            split_gateways.pop(last_gateway, None)
-            if len(split_gateways) > 0:
-                last_gateway = list(split_gateways)[-1]
-            else:
-                last_gateway = None
-        elif element["type"] == "parallel":
-            element_id = predecessor + "_ParallelGateway"
-            result.append({"type": "bpmn:ParallelGateway", "value": "", "id": element_id, "actor": current_actor, "predecessor": predecessor})
-            predecessor = last_gateway = element_id
-            predecessors = []
-            split_gateways[element_id] = []
-
-    for key, value in split_gateways.items():
-        result.append({"type": "bpmn:EndEvent", "value": "", "id": value[-1] + "_end", "actor": current_actor, "predecessor": value[-1]})
-
-    tasks = list(element for element in elements if element["type"] == "verb")
-
-    if tasks:
-        last_task = tasks[-1]
-
-        the_object = last_task["object"]
-        verb = last_task["verb"]
-        phrasal_verb = get_phrasal_verb(verb)
-        the_object = " ".join([word for word in the_object.split() if word.lower() not in ["a", "an", "the"]])
-
-        actor = get_actor(verb)
+        if conjunct_children_verb:
+            return get_actor_label(conjunct_children_verb)
+    else:
+        actor = next((child for child in verb.children if (child.dep_ == "nsubj")), None)
 
         if actor:
-            actor = " ".join([word for word in actor.lemma_.split() if word.lower() not in STOP_WORDS]).title()
+            return clean_actor_label(actor.text)
 
-            if actor != "":
-                current_actor = actor
+        conjunct_parent_verb = get_conjunct_parent_verb(verb)
 
-        if not phrasal_verb:
-            value = (the_object + " " + verb._.inflect("VBN")).title()
-            element_id = "".join(value.split())
+        if conjunct_parent_verb:
+            return get_actor_label(conjunct_parent_verb)
+
+    return None
+
+
+def get_business_object(verb):
+    if is_passive_verb(verb):
+        parent_verb = get_parent_verb(verb)
+
+        if parent_verb:
+            return get_business_object(parent_verb)
+
+        label = next((child for child in verb.children if (child.dep_ == "nsubjpass")), None)
+
+        if label:
+            prepositional_phrase = get_prepositional_phrase(verb)
+
+            if prepositional_phrase:
+                return label.text + " " + prepositional_phrase
+
+            return label.text
+
+        conjunct_parent_verb = get_conjunct_parent_verb(verb)
+
+        if conjunct_parent_verb:
+            return get_business_object(conjunct_parent_verb)
+    else:
+        if has_children_verbs(verb):
+            label = next((child for child in verb.children if (child.dep_ == "nsubj")), None)
+
+            if label:
+                return label.text
         else:
-            value = (the_object + " " + verb._.inflect("VBN") + " " + phrasal_verb.lemma_).title()
-            element_id = "".join(value.split())
+            label = next((child for child in verb.children if (child.dep_ == "dobj")), None)
 
-        result.append({"type": "bpmn:EndEvent", "value": value, "id": element_id, "actor": current_actor, "predecessor": predecessor})
+            if label:
+                prepositional_phrase = get_prepositional_phrase(verb)
 
-    return result
+                if prepositional_phrase:
+                    return label.text + " " + prepositional_phrase
+
+                return label.text
+
+            conjunct_children_verb = get_conjunct_children_verb(verb)
+
+            if conjunct_children_verb:
+                return get_business_object(conjunct_children_verb)
+
+            parent_verb = get_parent_verb(verb)
+
+            if parent_verb:
+                return get_business_object(parent_verb)
+
+    prepositional_phrase = get_prepositional_phrase(verb)
+
+    if prepositional_phrase:
+        return prepositional_phrase
+
+    return None
+
+
+def get_prepositional_phrase(verb):
+    prepositions = list(child for child in verb.children if (child.dep_ == "prep"))
+    prepositional_phrase = ""
+
+    while prepositions:
+        for preposition in prepositions:
+            pobj = next((child for child in preposition.children if (child.dep_ == "pobj")), None)
+
+            if pobj:
+                text = preposition.text + " " + pobj.text
+
+                if not any(phrase for phrase in ignored_prepositional_phrases if phrase in text.lower()):
+                    prepositional_phrase += text + " "
+                    prepositions.extend(list(child for child in pobj.children if (child.dep_ == "prep")))
+
+            prepositions.remove(preposition)
+
+    if not prepositional_phrase:
+        return None
+    else:
+        return prepositional_phrase.strip()
+
+
+def is_passive_verb(verb):
+    conjunct_parent_verb = get_conjunct_parent_verb(verb)
+
+    if conjunct_parent_verb:
+        return is_passive_verb(conjunct_parent_verb)
+
+    has_auxpass = any(child for child in verb.children if (child.dep_ == "auxpass"))
+    has_nsubjpass = any(child for child in verb.children if (child.dep_ == "nsubjpass"))
+
+    if has_auxpass and has_nsubjpass:
+        return True
+
+    if has_auxpass and get_parent_verb(verb):
+        return True
+
+    return False
+
+
+def clean_label(label):
+    return (" ".join([word for word in label.split() if word.lower() not in stopwords])).capitalize()
+
+
+def clean_actor_label(label):
+    label = (" ".join([word for word in label.split() if word.lower() not in stopwords]))
+
+    if label.isupper():
+        return label
+
+    return label.title()

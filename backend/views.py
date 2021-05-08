@@ -1,5 +1,5 @@
 from django.http import JsonResponse
-from backend.nlp_new import parse
+from backend.nlp import parse
 
 
 def index(request):
