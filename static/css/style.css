@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500&display=swap');
 
 body {
     font-family: 'IBM Plex Sans', sans-serif;
@@ -32,7 +32,7 @@ body {
         margin: 50px;
         width: calc(100vw - 100px);
         height: calc(100vh - 324px);
-        min-height: 450px;
+        min-height: 600px;
         box-shadow: 0 1rem 3rem rgba(0, 0, 0, .175) !important;
     }
 }

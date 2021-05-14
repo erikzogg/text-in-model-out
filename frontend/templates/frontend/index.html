@@ -21,7 +21,7 @@
 
         <main class="container-fluid p-5">
             <form class="row h-100" autocomplete="off">
-                <div class="col-xl h-100 d-flex flex-column">
+                <div class="col-xl h-100 d-flex flex-column mb-5 mb-xl-0">
                     <div class="text-center">
                         <h1>Input: Process Description</h1>
                     </div>
@@ -32,15 +32,15 @@
                         {% csrf_token %}
                     </div>
                     <div class="mb-3 text-center">
-                        <button type="button" class="btn btn-outline-primary" id="button-create-model" disabled="disabled">Create Process Model</button>
+                        <button type="button" class="btn btn-outline-primary m-1" id="button-create-model" disabled="disabled">Create Process Model</button>
                     </div>
                     <div class="text-center">
-                        <button type="button" class="btn btn-outline-secondary btn-example" data-btn="1">Load Example 1</button>
-                        <button type="button" class="btn btn-outline-secondary btn-example" data-btn="2">Load Example 2</button>
-                        <button type="button" class="btn btn-outline-secondary btn-example" data-btn="3">Load Example 3</button>
-                        <button type="button" class="btn btn-outline-secondary btn-example" data-btn="4">Load Example 4</button>
-                        <button type="button" class="btn btn-outline-secondary btn-example" data-btn="5">Load Example 5</button>
-                        <button type="button" class="btn btn-outline-secondary btn-example" data-btn="6">Load Example 6</button>
+                        <button type="button" class="btn btn-outline-secondary btn-example m-1" data-btn="1">Load Example 1</button>
+                        <button type="button" class="btn btn-outline-secondary btn-example m-1" data-btn="2">Load Example 2</button>
+                        <button type="button" class="btn btn-outline-secondary btn-example m-1" data-btn="3">Load Example 3</button>
+                        <button type="button" class="btn btn-outline-secondary btn-example m-1" data-btn="4">Load Example 4</button>
+                        <button type="button" class="btn btn-outline-secondary btn-example m-1" data-btn="5">Load Example 5</button>
+                        <button type="button" class="btn btn-outline-secondary btn-example m-1" data-btn="6">Load Example 6</button>
                     </div>
                 </div>
                 <div class="col-xl h-100 d-flex flex-column">
@@ -49,11 +49,11 @@
                     </div>
                     <div class="mb-3 border rounded flex-fill" id="process-model"></div>
                     <div class="mb-3 text-center">
-                        <button type="button" class="btn btn-outline-primary" id="export-bpmn" disabled="disabled">Export as BPMN File</button>
-                        <button type="button" class="btn btn-outline-primary" id="export-svg" disabled="disabled">Export as SVG File</button>
+                        <button type="button" class="btn btn-outline-primary m-1" id="export-bpmn" disabled="disabled">Export as BPMN File</button>
+                        <button type="button" class="btn btn-outline-primary m-1" id="export-svg" disabled="disabled">Export as SVG File</button>
                     </div>
                     <div class="text-center">
-                        <button type="button" class="btn btn-outline-secondary" id="clear-process-model" disabled="disabled">Clear Process Model</button>
+                        <button type="button" class="btn btn-outline-secondary m-1" id="clear-process-model" disabled="disabled">Clear Process Model</button>
                     </div>
                 </div>
             </form>
@@ -63,13 +63,7 @@
             <div class="text-center">
                 <ul class="list-inline">
                     <li class="list-inline-item">
-                        <a href="#" class="text-decoration-none">About</a>
-                    </li>
-                    <li class="list-inline-item">
-                        <a href="#" class="text-decoration-none">Imprint</a>
-                    </li>
-                    <li class="list-inline-item">
-                        <a href="#" class="text-decoration-none">Privacy</a>
+                        <a href="https://github.com/erikzogg/text-in-model-out" class="text-decoration-none">Link to GitHub Repository</a>
                     </li>
                 </ul>
             </div>
