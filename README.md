@@ -1,4 +1,7 @@
-# Source Code of My Bachelor Thesis
+# Text-in-Model-Out
+
+Text-In-Model-Out creates from a textual process description a BPMN 2.0 process model.
+This tool is part of my bachelor thesis at the Vienna University of Economics and Business.
 
 ## Prerequisites
 

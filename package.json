@@ -1,21 +1,32 @@
 {
-    "name": "bachelor-thesis",
+    "name": "text-in-model-out",
     "version": "1.0.0",
-    "description": "Source Code of My Bachelor Thesis",
-    "main": "main.js",
+    "description": "Text-In-Model-Out creates from a textual process description a BPMN 2.0 process model.",
+    "private": true,
     "scripts": {
-        "postinstall": "browserify -p esmify main.js -o static/js/bpmn.js"
+        "postinstall": "webpack"
     },
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/erikzogg/bachelor-thesis.git"
+        "url": "git+https://github.com/erikzogg/text-in-model-out.git"
     },
-    "author": "",
+    "author": "erikzogg",
     "license": "ISC",
     "dependencies": {
+        "@fontsource/ibm-plex-sans": "^4.3.0",
+        "@popperjs/core": "^2.9.2",
+        "bootstrap": "^5.0.1",
         "bpmn-js": "^8.5.0",
         "bpmn-js-cli": "^2.0.2",
         "browserify": "^17.0.0",
-        "esmify": "^2.1.1"
+        "css-loader": "^5.2.4",
+        "esmify": "^2.1.1",
+        "file-loader": "^6.2.0",
+        "mini-css-extract-plugin": "^1.6.0",
+        "sass": "^1.32.13",
+        "sass-loader": "^11.1.1",
+        "style-loader": "^2.0.0",
+        "webpack": "^5.37.0",
+        "webpack-cli": "^4.7.0"
     }
 }

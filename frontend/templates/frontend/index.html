@@ -7,16 +7,13 @@
         <title>Text-In-Model-Out</title>
 
         {% load static %}
-        <link rel="icon" type="image/png" href="{% static 'img/favicon.png' %}">
+        <link rel="icon" type="image/png" href="{% static 'build/img/favicon.png' %}">
 
-        <link href="{% static 'css/bootstrap.min.css' %}" rel="stylesheet">
-        <link rel="stylesheet" href="https://unpkg.com/bpmn-js@8.3.1/dist/assets/diagram-js.css">
-        <link rel="stylesheet" href="https://unpkg.com/bpmn-js@8.3.1/dist/assets/bpmn-font/css/bpmn.css">
-        <link href="{% static 'css/style.css' %}" rel="stylesheet">
+        <link href="{% static 'build/bundle.css' %}" rel="stylesheet">
     </head>
     <body>
         <header class="text-center" id="logo">
-            <img src="{% static 'img/app-logo.svg' %}" alt="Application Logo" class="img-fluid">
+            <img src="{% static 'build/img/app-logo.svg' %}" alt="Application Logo" class="img-fluid">
         </header>
 
         <main class="container-fluid p-5">
@@ -63,14 +60,12 @@
             <div class="text-center">
                 <ul class="list-inline">
                     <li class="list-inline-item">
-                        <a href="https://github.com/erikzogg/text-in-model-out" class="text-decoration-none">Link to GitHub Repository</a>
+                        <a href="https://github.com/erikzogg/text-in-model-out" class="text-decoration-none" target="_blank">Link to GitHub Repository</a>
                     </li>
                 </ul>
             </div>
         </footer>
 
-        <script src="{% static 'js/bootstrap.bundle.min.js' %}"></script>
-        <script src="{% static 'js/bpmn.js' %}"></script>
-        <script src="{% static 'js/app.js' %}"></script>
+        <script src="{% static 'build/bundle.js' %}"></script>
     </body>
 </html>

@@ -7,4 +7,5 @@ venv/
 db.sqlite3
 dependency_plot.svg
 node_modules
-static/js/bpmn.js
+static/*
+!static/examples
