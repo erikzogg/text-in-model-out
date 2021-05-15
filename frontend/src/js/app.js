@@ -288,5 +288,19 @@ let handleResponse = async function (data) {
         }
     });
 
+    let maximum_x = null;
+
+    cli.elements().forEach(function (element) {
+        if (cli.element(element).x > maximum_x) {
+            maximum_x = cli.element(element).x;
+        }
+    });
+
+    cli.elements().forEach(function (element) {
+        if (cli.element(element).type === 'bpmn:Lane') {
+            modeling.resizeLane(cli.element(element), {x: cli.element(element).x, y: cli.element(element).y, height: cli.element(element).height, width: maximum_x + 200});
+        }
+    });
+
     modeler.get('canvas').zoom('fit-viewport');
 };
