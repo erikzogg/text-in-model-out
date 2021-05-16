@@ -231,6 +231,18 @@ def get_bpmn_elements(doc, process_elements):
 
             open_gateways.pop(gateway)
 
+    if len(elements) > 0:
+        if elements[-1].get('category') != "bpmn:EndEvent":
+            if "Gateway" not in predecessor:
+                value = get_event_label(doc[int(predecessor)])
+            else:
+                value = "Process terminated"
+
+            elements.append({
+                "category": "bpmn:EndEvent", "identifier": "EndEvent_" + predecessor, "value": value,
+                "actor": actor, "predecessor": predecessor
+            })
+
     return elements
 
 
