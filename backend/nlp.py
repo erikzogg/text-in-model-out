@@ -3,17 +3,50 @@ import lemminflect
 from spacy import displacy
 from pathlib import Path
 
-exclusive_indicators = ["if", "in case", "in the case", "for the case"]
-parallel_indicators = ["at the same time", "whereas", "while"]
-sequence_flow_switch_indicators = ["otherwise", "in the other case"]
-sequence_flow_join_indicators = ["the sequence flow", "the flow", "once one of these activities", "once these activities", "after each of these activities", "after these activities"]
-sequence_flow_join_verbs = ["merge", "perform", "complete", "execute"]
-process_termination_indicators = ["the business process", "this business process", "the process", "this process"]
-process_termination_verbs = ["end", "finish", "stop", "terminate"]
-intermediate_event_indicators = ["once", "after"]
-ignored_conditional_phrases = ["if", "in case", "that", "for the case"]
-ignored_prepositional_phrases = ["at the same time", "in addition", "in case", "in the case", "in the other case", "for the case"]
-stopwords = ["a", "an", "the", "she", "her", "he", "his", "they", "their"]
+split_exclusive_gateway_indicators = [
+    "for the case", "if", "in case", "in the case"
+]
+
+split_parallel_gateway_indicators = [
+    "at the same time", "whereas", "while"
+]
+
+sequence_flow_change_indicators = [
+    "in the other case", "otherwise"
+]
+
+join_gateway_indicators = [
+    "after each of these activities", "after these activities", "once these activities",
+    "once one of these activities", "the flow", "the sequence flow"
+]
+
+join_gateway_verbs = [
+    "complete", "execute", "merge", "perform"
+]
+
+end_event_indicators = [
+    "the business process", "this business process", "the process", "this process"
+]
+
+end_event_verbs = [
+    "end", "finish", "stop", "terminate"
+]
+
+intermediate_event_indicators = [
+    "after", "once"
+]
+
+ignored_conditional_phrases = [
+    "if", "that"
+]
+
+ignored_prepositional_phrases = [
+    "at the same time", "in addition", "in case", "in the case", "in the other case", "for the case"
+]
+
+stopwords = [
+    "a", "an", "her", "he", "his", "she", "the", "they", "their"
+]
 
 
 def parse(text):
@@ -37,35 +70,35 @@ def get_process_elements(doc):
         verbs = [token for token in sent if token.pos_ == "VERB"]
 
         for verb in verbs:
-            exclusive_gateway = detect_exclusive_gateway(verb)
+            split_exclusive_gateway = detect_split_exclusive_gateway(verb)
 
-            if exclusive_gateway:
-                if exclusive_gateway == verb:
-                    elements.append({"category": "exclusive_gateway", "verb": verb})
+            if split_exclusive_gateway:
+                if split_exclusive_gateway == verb:
+                    elements.append({"category": "split_exclusive_gateway", "verb": verb})
 
                 continue
 
-            parallel_gateway = detect_parallel_gateway(verb)
+            split_parallel_gateway = detect_split_parallel_gateway(verb)
 
-            if parallel_gateway:
-                elements.insert(len(elements) - 1, {"category": "parallel_gateway", "verb": verb})
-                elements.append({"category": "sequence_flow_switch", "verb": verb})
+            if split_parallel_gateway:
+                elements.insert(len(elements) - 1, {"category": "split_parallel_gateway", "verb": verb})
+                elements.append({"category": "sequence_flow_change", "verb": verb})
 
-            sequence_flow_switch = detect_sequence_flow_switch(verb)
+            sequence_flow_change = detect_sequence_flow_change(verb)
 
-            if sequence_flow_switch:
-                elements.append({"category": "sequence_flow_switch", "verb": verb})
+            if sequence_flow_change:
+                elements.append({"category": "sequence_flow_change", "verb": verb})
 
-            sequence_flow_join = detect_sequence_flow_join(doc, verb)
+            join_gateway = detect_join_gateway(doc, verb)
 
-            if sequence_flow_join:
-                elements.append({"category": "sequence_flow_join", "verb": verb})
+            if join_gateway:
+                elements.append({"category": "join_gateway", "verb": verb})
                 continue
 
-            process_termination = detect_process_termination(verb)
+            end_event = detect_end_event(verb)
 
-            if process_termination:
-                elements.append({"category": "process_termination", "verb": verb})
+            if end_event:
+                elements.append({"category": "end_event", "verb": verb})
                 continue
 
             intermediate_event = detect_intermediate_event(verb)
@@ -97,45 +130,55 @@ def get_bpmn_elements(doc, process_elements):
     open_gateways = {}
 
     for process_element in process_elements:
-        if process_element == process_elements[0] or process_element.get('category') in ["task", "intermediate_event", "start_event"]:
+        if process_element == process_elements[0] or process_element.get("category") in ["task", "intermediate_event", "start_event"]:
             new_actor = get_actor_label(process_element["verb"])
             if new_actor:
                 actor = new_actor
-        if process_element.get('category') == "start_event":
-            element = {"category": "bpmn:StartEvent", "identifier": str(process_element["verb"].i), "value": get_event_label(process_element["verb"]), "actor": actor, "predecessor": predecessor}
-            elements.append(element)
-            predecessor = element.get('identifier')
-        elif process_element.get('category') == "task":
-            element = {"category": "bpmn:Task", "identifier": str(process_element["verb"].i), "value": get_task_label(process_element["verb"]), "actor": actor, "predecessor": predecessor}
-            elements.append(element)
-            predecessor = element.get('identifier')
-        elif process_element.get('category') == "intermediate_event":
+        if process_element.get("category") == "start_event":
             element = {
-                "category": "bpmn:IntermediateThrowEvent", "identifier": str(process_element["verb"].i), "value": get_event_label(process_element["verb"]), "actor": actor, "predecessor": predecessor
+                "category": "bpmn:StartEvent", "identifier": str(process_element["verb"].i),
+                "value": get_event_label(process_element["verb"]), "actor": actor, "predecessor": predecessor
             }
             elements.append(element)
-            predecessor = element.get('identifier')
-        elif process_element.get('category') == "exclusive_gateway":
+            predecessor = element.get("identifier")
+        elif process_element.get("category") == "task":
+            element = {
+                "category": "bpmn:Task", "identifier": str(process_element["verb"].i),
+                "value": get_task_label(process_element["verb"]), "actor": actor, "predecessor": predecessor
+            }
+            elements.append(element)
+            predecessor = element.get("identifier")
+        elif process_element.get("category") == "intermediate_event":
+            element = {
+                "category": "bpmn:IntermediateThrowEvent", "identifier": str(process_element["verb"].i),
+                "value": get_event_label(process_element["verb"]), "actor": actor, "predecessor": predecessor
+            }
+            elements.append(element)
+            predecessor = element.get("identifier")
+        elif process_element.get("category") == "split_exclusive_gateway":
             element = {
                 "category": "bpmn:ExclusiveGateway", "identifier": "ExclusiveGateway_" + str(process_element["verb"].i),
                 "value": get_conditional_label(doc, process_element["verb"]), "actor": actor, "predecessor": predecessor
             }
             elements.append(element)
-            predecessor = element.get('identifier')
-            open_gateways[element.get('identifier')] = []
-        elif process_element.get('category') == "parallel_gateway":
-            element = {"category": "bpmn:ParallelGateway", "identifier": "ParallelGateway_" + str(process_element["verb"].i), "value": "", "actor": actor, "predecessor": predecessor}
+            predecessor = element.get("identifier")
+            open_gateways[element.get("identifier")] = []
+        elif process_element.get("category") == "split_parallel_gateway":
+            element = {
+                "category": "bpmn:ParallelGateway", "identifier": "ParallelGateway_" + str(process_element["verb"].i),
+                "value": "", "actor": actor, "predecessor": predecessor
+            }
             elements.append(element)
-            predecessor = element.get('identifier')
-            open_gateways[element.get('identifier')] = []
-        elif process_element.get('category') == "sequence_flow_switch":
+            predecessor = element.get("identifier")
+            open_gateways[element.get("identifier")] = []
+        elif process_element.get("category") == "sequence_flow_change":
             if not open_gateways:
                 continue
 
             last_gateway = list(open_gateways)[-1]
             open_gateways[last_gateway].append(predecessor)
             predecessor = last_gateway
-        elif process_element.get('category') == "sequence_flow_join":
+        elif process_element.get("category") == "join_gateway":
             if not open_gateways:
                 continue
 
@@ -147,37 +190,49 @@ def get_bpmn_elements(doc, process_elements):
             else:
                 category = "bpmn:ParallelGateway"
 
-            element = {"category": category, "identifier": last_gateway + "_Join", "value": "", "actor": actor, "predecessors": open_gateways[last_gateway]}
+            element = {
+                "category": category, "identifier": last_gateway + "_Join",
+                "value": "", "actor": actor, "predecessors": open_gateways[last_gateway]
+            }
             elements.append(element)
-            predecessor = element.get('identifier')
+            predecessor = element.get("identifier")
             open_gateways.pop(last_gateway)
-        elif process_element.get('category') == "process_termination":
+        elif process_element.get("category") == "end_event":
             if open_gateways:
                 last_gateway = list(open_gateways)[-1]
 
                 if "ParallelGateway" in last_gateway:
                     open_gateways[last_gateway].append(predecessor)
 
-                    element = {"category": "bpmn:ParallelGateway", "identifier": last_gateway + "_Join", "value": "", "actor": actor, "predecessors": open_gateways[last_gateway]}
+                    element = {
+                        "category": "bpmn:ParallelGateway", "identifier": last_gateway + "_Join",
+                        "value": "", "actor": actor, "predecessors": open_gateways[last_gateway]
+                    }
                     elements.append(element)
-                    predecessor = element.get('identifier')
-                    element = {"category": "bpmn:EndEvent", "identifier": str(process_element["verb"].i), "value": "Process terminated", "actor": actor, "predecessor": predecessor}
+                    predecessor = element.get("identifier")
+                    element = {
+                        "category": "bpmn:EndEvent", "identifier": str(process_element["verb"].i),
+                        "value": "Process terminated", "actor": actor, "predecessor": predecessor
+                    }
                 else:
                     for last_element in open_gateways[last_gateway]:
                         element = next(element for element in elements if element["identifier"] == last_element)
 
-                        if "Gateway" not in element.get('identifier'):
-                            value = get_event_label(doc[int(element.get('identifier'))])
+                        if "Gateway" not in element.get("identifier"):
+                            value = get_event_label(doc[int(element.get("identifier"))])
                         else:
                             value = "Process terminated"
 
                         end_event_element = {
-                            "category": "bpmn:EndEvent", "identifier": "EndEvent_" + element.get('identifier'), "value": value,
-                            "actor": element.get('actor'), "predecessor": element.get('identifier')
+                            "category": "bpmn:EndEvent", "identifier": "EndEvent_" + element.get("identifier"),
+                            "value": value, "actor": element.get("actor"), "predecessor": element.get("identifier")
                         }
                         elements.insert(elements.index(element) + 1, end_event_element)
 
-                    element = {"category": "bpmn:EndEvent", "identifier": str(process_element["verb"].i), "value": get_event_label(doc[int(predecessor)]), "actor": actor, "predecessor": predecessor}
+                    element = {
+                        "category": "bpmn:EndEvent", "identifier": str(process_element["verb"].i),
+                        "value": get_event_label(doc[int(predecessor)]), "actor": actor, "predecessor": predecessor
+                    }
 
                 elements.append(element)
                 predecessor = last_gateway
@@ -188,7 +243,10 @@ def get_bpmn_elements(doc, process_elements):
                 else:
                     value = "Process terminated"
 
-                element = {"category": "bpmn:EndEvent", "identifier": str(process_element["verb"].i), "value": value, "actor": actor, "predecessor": predecessor}
+                element = {
+                    "category": "bpmn:EndEvent", "identifier": str(process_element["verb"].i),
+                    "value": value, "actor": actor, "predecessor": predecessor
+                }
                 elements.append(element)
 
             for gateway in list(open_gateways):
@@ -205,42 +263,44 @@ def get_bpmn_elements(doc, process_elements):
                 for last_element in open_gateways[gateway]:
                     element = next(element for element in elements if element["identifier"] == last_element)
 
-                    if "Gateway" not in element.get('identifier'):
-                        value = get_event_label(doc[int(element.get('identifier'))])
+                    if "Gateway" not in element.get("identifier"):
+                        value = get_event_label(doc[int(element.get("identifier"))])
                     else:
                         value = "Process terminated"
 
                     end_event_element = {
-                        "category": "bpmn:EndEvent", "identifier": "EndEvent_" + element.get('identifier'), "value": value,
-                        "actor": element.get('actor'), "predecessor": element.get('identifier')
+                        "category": "bpmn:EndEvent", "identifier": "EndEvent_" + element.get("identifier"),
+                        "value": value, "actor": element.get("actor"), "predecessor": element.get("identifier")
                     }
                     elements.insert(elements.index(element) + 1, end_event_element)
             else:
                 element = next(element for element in elements if element["identifier"] in open_gateways[gateway])
 
                 parallel_gateway_join = {
-                    "category": "bpmn:ParallelGateway", "identifier": gateway + "_Join", "value": "", "actor": element.get('actor'), "predecessors": open_gateways[gateway]
+                    "category": "bpmn:ParallelGateway", "identifier": gateway + "_Join",
+                    "value": "", "actor": element.get("actor"), "predecessors": open_gateways[gateway]
                 }
                 elements.append(parallel_gateway_join)
 
                 end_event_element = {
-                    "category": "bpmn:EndEvent", "identifier": "EndEvent_" + parallel_gateway_join.get('identifier'), "value": "Process terminated",
-                    "actor": element.get('actor'), "predecessor": parallel_gateway_join.get('identifier')
+                    "category": "bpmn:EndEvent", "identifier": "EndEvent_" + parallel_gateway_join.get("identifier"),
+                    "value": "Process terminated", "actor": element.get("actor"),
+                    "predecessor": parallel_gateway_join.get("identifier")
                 }
                 elements.append(end_event_element)
 
             open_gateways.pop(gateway)
 
     if len(elements) > 0:
-        if elements[-1].get('category') != "bpmn:EndEvent":
+        if elements[-1].get("category") != "bpmn:EndEvent":
             if "Gateway" not in predecessor:
                 value = get_event_label(doc[int(predecessor)])
             else:
                 value = "Process terminated"
 
             elements.append({
-                "category": "bpmn:EndEvent", "identifier": "EndEvent_" + predecessor, "value": value,
-                "actor": actor, "predecessor": predecessor
+                "category": "bpmn:EndEvent", "identifier": "EndEvent_" + predecessor,
+                "value": value, "actor": actor, "predecessor": predecessor
             })
 
     return elements
@@ -271,18 +331,18 @@ def has_children_verbs(verb):
         return False
 
 
-def detect_exclusive_gateway(verb):
+def detect_split_exclusive_gateway(verb):
     parent_verb = get_parent_verb(verb)
 
     if parent_verb:
-        return detect_exclusive_gateway(parent_verb)
+        return detect_split_exclusive_gateway(parent_verb)
 
     conjunct_parent_verb = get_conjunct_parent_verb(verb)
 
     if conjunct_parent_verb:
-        return detect_exclusive_gateway(conjunct_parent_verb)
+        return detect_split_exclusive_gateway(conjunct_parent_verb)
 
-    mark = next((child for child in verb.children if (child.dep_ == "mark" and child.text.lower() in exclusive_indicators)), None)
+    mark = next((child for child in verb.children if (child.dep_ == "mark" and child.text.lower() in split_exclusive_gateway_indicators)), None)
 
     if mark:
         return verb
@@ -292,56 +352,56 @@ def detect_exclusive_gateway(verb):
 
     indicator_phrase = get_indicator_phrase(verb.sent.root)
 
-    if indicator_phrase in exclusive_indicators:
+    if indicator_phrase in split_exclusive_gateway_indicators:
         return verb
 
     return None
 
 
-def detect_parallel_gateway(verb):
-    mark = next((child for child in verb.children if (child.dep_ == "mark" and child.text.lower() in parallel_indicators)), None)
+def detect_split_parallel_gateway(verb):
+    mark = next((child for child in verb.children if (child.dep_ == "mark" and child.text.lower() in split_parallel_gateway_indicators)), None)
 
     if mark:
         return verb
 
     indicator_phrase = get_indicator_phrase(verb)
 
-    if indicator_phrase in parallel_indicators:
+    if indicator_phrase in split_parallel_gateway_indicators:
         return verb
 
     return None
 
 
-def detect_sequence_flow_switch(verb):
-    advmod = next((child for child in verb.children if (child.dep_ == "advmod" and child.text.lower() in sequence_flow_switch_indicators)), None)
+def detect_sequence_flow_change(verb):
+    advmod = next((child for child in verb.children if (child.dep_ == "advmod" and child.text.lower() in sequence_flow_change_indicators)), None)
 
     if advmod:
         return verb
 
     indicator_phrase = get_indicator_phrase(verb)
 
-    if indicator_phrase in sequence_flow_switch_indicators:
+    if indicator_phrase in sequence_flow_change_indicators:
         return verb
 
     return None
 
 
-def detect_sequence_flow_join(doc, verb):
-    nsubjpass = next((child for child in verb.children if (child.dep_ == "nsubjpass" and child.text.lower() in sequence_flow_join_indicators)), None)
+def detect_join_gateway(doc, verb):
+    nsubjpass = next((child for child in verb.children if (child.dep_ == "nsubjpass" and child.text.lower() in join_gateway_indicators)), None)
 
-    if verb.lemma_ in sequence_flow_join_verbs and nsubjpass:
+    if verb.lemma_ in join_gateway_verbs and nsubjpass:
         return verb
 
-    if verb.lemma_ in sequence_flow_join_verbs and doc[verb.sent.start] in verb.children:
-        if any(indicator for indicator in sequence_flow_join_indicators if indicator in doc[verb.sent.start:verb.i].text.lower()):
+    if verb.lemma_ in join_gateway_verbs and doc[verb.sent.start] in verb.children:
+        if any(indicator for indicator in join_gateway_indicators if indicator in doc[verb.sent.start:verb.i].text.lower()):
             return verb
 
     return None
 
 
-def detect_process_termination(verb):
-    has_indicator = any(child for child in verb.children if (child.dep_ == "nsubj" and child.text.lower() in process_termination_indicators))
-    has_verb = (verb.lemma_ in process_termination_verbs)
+def detect_end_event(verb):
+    has_indicator = any(child for child in verb.children if (child.dep_ == "nsubj" and child.text.lower() in end_event_indicators))
+    has_verb = (verb.lemma_ in end_event_verbs)
 
     if has_indicator and has_verb:
         return verb
