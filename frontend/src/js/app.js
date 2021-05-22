@@ -47,7 +47,7 @@ let initApp = function () {
                 this.innerHTML = 'Create Process Model';
                 this.removeAttribute('disabled');
 
-                console.log(error);
+                alert('Process description could not be processed. Does the process description follow the predefined rules?');
             });
     });
 
@@ -276,15 +276,13 @@ let handleResponse = async function (data) {
             }
         }
 
-        if (cli.element(element).type === 'bpmn:ExclusiveGateway') {
-            if (cli.element(element).outgoing.length === 2) {
-                modeling.updateProperties(cli.element(element).outgoing[0], {name: 'Yes'});
-                modeling.updateProperties(cli.element(element).outgoing[1], {name: 'No'});
-            }
-        }
-
         if (cli.element(element).type === 'bpmn:Lane') {
-            modeling.resizeLane(cli.element(element), {x: cli.element(element).x, y: cli.element(element).y, height: 200, width: cli.element(element).width});
+            modeling.resizeLane(cli.element(element), {
+                x: cli.element(element).x,
+                y: cli.element(element).y,
+                height: 200,
+                width: cli.element(element).width
+            });
         }
     });
 
@@ -298,7 +296,45 @@ let handleResponse = async function (data) {
 
     cli.elements().forEach(function (element) {
         if (cli.element(element).type === 'bpmn:Lane') {
-            modeling.resizeLane(cli.element(element), {x: cli.element(element).x, y: cli.element(element).y, height: cli.element(element).height, width: maximum_x + 200});
+            modeling.resizeLane(cli.element(element), {
+                x: cli.element(element).x,
+                y: cli.element(element).y,
+                height: cli.element(element).height,
+                width: maximum_x + 200
+            });
+        }
+    });
+
+    cli.elements().forEach(function (element) {
+        if (cli.element(element).type === 'bpmn:SequenceFlow') {
+            modeling.removeConnection(cli.element(element));
+        }
+    });
+
+    elements.forEach(function (element, index) {
+        if (element.predecessor != null) {
+            cli.connect(
+                element.predecessor,
+                element.identifier,
+                'bpmn:SequenceFlow'
+            );
+        } else if (element.predecessors != null) {
+            element.predecessors.forEach(function (predecessor) {
+                cli.connect(
+                    predecessor,
+                    element.identifier,
+                    'bpmn:SequenceFlow'
+                );
+            });
+        }
+    });
+
+    cli.elements().forEach(function (element) {
+        if (cli.element(element).type === 'bpmn:ExclusiveGateway') {
+            if (cli.element(element).outgoing.length === 2) {
+                modeling.updateProperties(cli.element(element).outgoing[0], {name: 'Yes'});
+                modeling.updateProperties(cli.element(element).outgoing[1], {name: 'No'});
+            }
         }
     });
 
