@@ -16,8 +16,9 @@ sequence_flow_change_indicators = [
 ]
 
 join_gateway_indicators = [
-    "after each of these activities", "after these activities", "once these activities",
-    "once one of these activities", "the flow", "the sequence flow"
+    "after each of these activities", "after each of these tasks", "after these activities",
+    "after these tasks", "once these activities", "once these tasks",
+    "once one of these activities", "once one of these tasks", "the flow", "the sequence flow"
 ]
 
 join_gateway_verbs = [
@@ -41,7 +42,8 @@ ignored_conditional_phrases = [
 ]
 
 ignored_prepositional_phrases = [
-    "at the same time", "in addition", "in case", "in the case", "in the other case", "for the case"
+    "at the same time", "in addition", "in case", "in the case", "in that case",
+    "in the other case", "in this case", "for the case"
 ]
 
 stopwords = [
