@@ -1,12 +1,12 @@
 # Text-In-Model-Out
 
-Text-In-Model-Out creates from a textual process description a BPMN 2.0 process model.
+Text-In-Model-Out creates a BPMN 2.0 process model from a textual process description.
 This tool is part of my bachelor thesis at the Vienna University of Economics and Business.
 
 ## Prerequisites
 
 * Docker >= 20.10.6
-* docker-compose >= 1.29.1
+* docker-compose >= 1.29.2
 
 ## Supported Browsers
 

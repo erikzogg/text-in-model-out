@@ -47,7 +47,7 @@ ignored_prepositional_phrases = [
 ]
 
 stopwords = [
-    "a", "an", "her", "he", "his", "she", "the", "they", "their"
+    "a", "an", "he", "her", "his", "she", "the", "they", "their"
 ]
 
 
@@ -56,11 +56,6 @@ def parse(text):
     nlp.add_pipe("merge_noun_chunks")
 
     doc = nlp(text)
-
-    svg = displacy.render(doc, style="dep")
-
-    output_path = Path("./dependency_plot.svg")
-    output_path.open("w", encoding="utf-8").write(svg)
 
     return get_bpmn_elements(doc, get_process_elements(doc))
 

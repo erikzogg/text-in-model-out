@@ -133,7 +133,7 @@ let handleResponse = async function (data) {
     cli.removeShape(modeler.get('elementRegistry').get('StartEvent_1'));
 
     const participant = elementFactory.createParticipantShape();
-    cli.setLabel(participant, 'Organisation');
+    cli.setLabel(participant, 'Organization');
 
     modeling.createShape(participant, {x: 300, y: 125}, elementRegistry.get('Process_1'));
     modeling.splitLane(participant, Object.keys(actors).length);
