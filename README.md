@@ -10,9 +10,9 @@ This tool is part of my bachelor thesis at the Vienna University of Economics an
 
 ## Supported Browsers
 
-* Google Chrome >= 95
-* Microsoft Edge >= 95
-* Mozilla Firefox >= 93
+* Google Chrome >= 97
+* Microsoft Edge >= 97
+* Mozilla Firefox >= 96
 
 ## Setup
 
