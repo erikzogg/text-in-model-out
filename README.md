@@ -5,14 +5,14 @@ This tool is part of my bachelor thesis at the Vienna University of Economics an
 
 ## Prerequisites
 
-* Docker >= 20.10.10
+* Docker >= 20.10.13
 * docker-compose >= 1.29.2
 
 ## Supported Browsers
 
-* Google Chrome >= 97
-* Microsoft Edge >= 97
-* Mozilla Firefox >= 96
+* Google Chrome >= 100
+* Microsoft Edge >= 100
+* Mozilla Firefox >= 98
 
 ## Setup
 
@@ -20,14 +20,20 @@ This tool is part of my bachelor thesis at the Vienna University of Economics an
 
 ```
 docker-compose up -d
-docker-compose run app npm install
+docker-compose run --rm app npm install
 ```
 
 ### Without Docker
 
 ```
 pip install --no-cache-dir -r requirements.txt
-python -m spacy download en_core_web_trf
 python manage.py runserver
 npm install
+```
+
+### Initial Setup (not needed)
+
+```
+pip install -U pip setuptools wheel spacy lemminflect Django gunicorn
+python -m spacy download en_core_web_trf
 ```
