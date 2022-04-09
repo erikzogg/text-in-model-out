@@ -12,7 +12,7 @@ This tool is part of my bachelor thesis at the Vienna University of Economics an
 
 * Google Chrome >= 100
 * Microsoft Edge >= 100
-* Mozilla Firefox >= 98
+* Mozilla Firefox >= 99
 
 ## Setup
 
