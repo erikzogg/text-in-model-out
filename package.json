@@ -1,6 +1,6 @@
 {
     "name": "text-in-model-out",
-    "version": "1.0.4",
+    "version": "1.0.5",
     "description": "Text-In-Model-Out creates a BPMN 2.0 process model from a textual process description.",
     "private": true,
     "scripts": {
@@ -23,7 +23,7 @@
         "esmify": "^2.1.1",
         "file-loader": "^6.2.0",
         "mini-css-extract-plugin": "^2.6.0",
-        "sass": "^1.50.0",
+        "sass": "^1.51.0",
         "sass-loader": "^12.6.0",
         "style-loader": "^3.3.1",
         "webpack": "^5.72.0",

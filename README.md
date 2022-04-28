@@ -5,12 +5,12 @@ This tool is part of my bachelor thesis at the Vienna University of Economics an
 
 ## Prerequisites
 
-* Docker >= 20.10.13
+* Docker >= 20.10.14
 * docker-compose >= 1.29.2
 
 ## Supported Browsers
 
-* Google Chrome >= 100
+* Google Chrome >= 101
 * Microsoft Edge >= 100
 * Mozilla Firefox >= 99
 
